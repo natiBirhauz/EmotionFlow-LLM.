@@ -11,6 +11,9 @@ matplotlib>=3.7.0
 scikit-learn>=1.3.0
 umap-learn>=0.5.3
 
+# Web UI
+gradio>=4.0.0
+
 # Optional dependencies
 # For development
 pytest-cov>=4.1.0

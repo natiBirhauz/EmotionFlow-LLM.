@@ -427,3 +427,180 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ── Additional visualization functions for Gradio UI ──────────────────────────
+
+def plot_emotion_distribution(model, outputs, batch_size=1):
+    """
+    Plot emotion distribution across multiple generated samples.
+    
+    Args:
+        model: EmotionFlowLLM instance
+        outputs: List of token tensors
+        batch_size: Batch size (default 1)
+        
+    Returns:
+        matplotlib.figure.Figure for use in Gradio
+    """
+    from collections import Counter
+    from emotionflow_llm.utils import emotion_profile
+    
+    # Get emotion for each output
+    emotions = [emotion_profile(model, out) for out in outputs]
+    counts = Counter(emotions)
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Bar chart
+    emotion_names = list(counts.keys())
+    emotion_counts = list(counts.values())
+    colors = [EMOTION_COLORS.get(e, "#CCCCCC") for e in emotion_names]
+    
+    bars = ax.bar(emotion_names, emotion_counts, color=colors, 
+                   edgecolor="#333", linewidth=1.2, alpha=0.85)
+    
+    ax.set_xlabel('Emotion', fontsize=12)
+    ax.set_ylabel('Frequency', fontsize=12)
+    ax.set_title(f'Emotion Distribution ({len(outputs)} samples)', 
+                 fontsize=14, fontweight="bold")
+    ax.grid(axis='y', alpha=0.3)
+    plt.xticks(rotation=45, ha='right')
+    
+    # Add value labels on bars
+    for bar in bars:
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+                f'{int(height)}',
+                ha='center', va='bottom', fontsize=10)
+    
+    plt.tight_layout()
+    return fig
+
+
+def plot_emotion_trajectory_for_ui(model):
+    """
+    Plot emotion trajectory across transformer layers for Gradio UI.
+    
+    Args:
+        model: EmotionFlowLLM instance (must have run forward pass first)
+        
+    Returns:
+        matplotlib.figure.Figure for use in Gradio
+    """
+    from emotionflow_llm.utils import collect_emotion_trajectory
+    
+    activations = model.get_activations()
+    if not activations:
+        # No activations available
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, 'No activations available\n(run forward pass first)',
+                ha='center', va='center', fontsize=14)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
+        return fig
+    
+    # Extract emotion portions from each layer
+    emotions_per_layer = []
+    for act in activations:
+        # act: [B, S, 136] → extract last 8 dims
+        emo = act[:, :, -8:].mean(dim=[0, 1]).detach().numpy()  # [8]
+        emotions_per_layer.append(emo)
+    
+    emotions_array = np.array(emotions_per_layer)  # [layers, 8]
+    
+    # Create heatmap
+    fig, ax = plt.subplots(figsize=(12, 6))
+    im = ax.imshow(emotions_array.T, aspect='auto', cmap='RdYlGn', 
+                   vmin=0, vmax=1, interpolation='nearest')
+    
+    # Labels
+    ax.set_xlabel('Transformer Layer', fontsize=12)
+    ax.set_ylabel('Emotion Dimension', fontsize=12)
+    ax.set_title('Emotion Evolution Across Layers', fontsize=14, fontweight="bold")
+    
+    # Ticks
+    ax.set_xticks(range(len(activations)))
+    ax.set_xticklabels([f'Layer {i+1}' for i in range(len(activations))])
+    ax.set_yticks(range(8))
+    ax.set_yticklabels(EMOTIONS)
+    
+    # Colorbar
+    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cbar.set_label('Emotion Strength', fontsize=10)
+    
+    plt.tight_layout()
+    return fig
+
+
+def plot_emotion_trajectory_comparison(model, outputs, target_emotion):
+    """
+    Compare emotion trajectories of multiple samples vs target.
+    
+    Args:
+        model: EmotionFlowLLM instance
+        outputs: List of token tensors
+        target_emotion: Target emotion vector [8]
+        
+    Returns:
+        matplotlib.figure.Figure for use in Gradio
+    """
+    fig, axes = plt.subplots(2, 1, figsize=(12, 10))
+    
+    # Top plot: trajectory for each sample
+    ax1 = axes[0]
+    for i, output in enumerate(outputs[:5]):  # Show first 5 samples
+        model.eval()
+        with torch.no_grad():
+            _ = model(output)
+            activations = model.get_activations()
+        
+        # Extract mean emotion per layer
+        layer_emotions = []
+        for act in activations:
+            emo = act[:, :, -8:].mean(dim=[0, 1])
+            layer_emotions.append(emo.numpy())
+        
+        layer_emotions = np.array(layer_emotions)  # [layers, 8]
+        
+        # Plot dominant emotion strength per layer
+        dominant_strengths = layer_emotions.max(axis=1)
+        ax1.plot(range(1, len(activations) + 1), dominant_strengths,
+                marker='o', label=f'Sample {i+1}', alpha=0.7)
+    
+    ax1.set_xlabel('Layer', fontsize=11)
+    ax1.set_ylabel('Dominant Emotion Strength', fontsize=11)
+    ax1.set_title('Emotion Trajectory per Sample', fontsize=12, fontweight='bold')
+    ax1.legend(fontsize=9)
+    ax1.grid(alpha=0.3)
+    
+    # Bottom plot: distance to target over layers
+    ax2 = axes[1]
+    target_vec = target_emotion.numpy() if torch.is_tensor(target_emotion) else target_emotion
+    
+    for i, output in enumerate(outputs[:5]):
+        model.eval()
+        with torch.no_grad():
+            _ = model(output)
+            activations = model.get_activations()
+        
+        distances = []
+        for act in activations:
+            emo = act[:, :, -8:].mean(dim=[0, 1]).numpy()
+            # MSE distance to target
+            dist = np.mean((emo - target_vec) ** 2)
+            distances.append(dist)
+        
+        ax2.plot(range(1, len(activations) + 1), distances,
+                marker='s', label=f'Sample {i+1}', alpha=0.7)
+    
+    ax2.set_xlabel('Layer', fontsize=11)
+    ax2.set_ylabel('MSE Distance to Target', fontsize=11)
+    ax2.set_title('Emotion Distance to Target Across Layers', fontsize=12, fontweight='bold')
+    ax2.legend(fontsize=9)
+    ax2.grid(alpha=0.3)
+    
+    plt.tight_layout()
+    return fig

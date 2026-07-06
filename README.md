@@ -18,6 +18,8 @@
 - 🎲 **Multi-Sample Generation**: Generate 20 diverse candidates with emotion profiling
 - 📊 **Rich Visualizations**: Neuron-level emotion coloring, heatmaps, attention patterns, and more
 - 🔬 **Neuron-Level Analysis**: See how individual neurons specialize in different emotions
+- 🎛️ **Emotion Conditioning**: Control emotional tone by specifying target emotion profiles (NEW!)
+- 🌐 **Interactive Web UI**: Gradio-based interface for live demonstrations (NEW!)
 
 ---
 
@@ -43,8 +45,12 @@ python emotionflow_llm.py
 # Generate standard visualizations
 python visualize.py
 
-# Generate neuron-level emotion visualizations (NEW!)
+# Generate neuron-level emotion visualizations
 python neuron_emotion_viz.py
+
+# Launch interactive web UI (NEW!)
+python app.py
+# Then open http://localhost:7860 in your browser
 ```
 
 ### Expected Output
@@ -179,6 +185,28 @@ from emotionflow_llm import collect_emotion_trajectory
 model(tokens)  # Forward pass
 trajectory = collect_emotion_trajectory(model)
 print(f"Layer activations: {trajectory}")
+```
+
+### Emotion Conditioning (NEW!)
+
+Control the emotional tone of generated text:
+
+```python
+from emotionflow_llm.conditioning import EmotionConditioner, create_emotion_config
+
+model = EmotionFlowLLM()
+conditioner = EmotionConditioner(model)
+
+# Specify target emotions (e.g., 70% trust, 30% joy)
+config = create_emotion_config(
+    emotion_dict={"trust": 0.7, "joy": 0.3},
+    num_candidates=50,
+    temperature=0.9
+)
+
+# Generate text matching target emotions
+outputs = conditioner.generate_conditioned(prompt, config)
+# Returns samples closest to target emotional profile
 ```
 
 ---
