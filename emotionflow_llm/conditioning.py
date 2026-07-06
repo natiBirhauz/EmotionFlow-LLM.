@@ -125,16 +125,18 @@ class EmotionConditioner:
         Returns:
             List of token tensors closest to target emotion
         """
-        from emotionflow_llm.generation import generate_samples
+        from emotionflow_llm.generation import generate
         
-        # Generate candidates
-        candidates = generate_samples(
-            self.model,
-            prompt,
-            n=config.num_candidates,
-            max_len=config.max_length,
-            temperature=config.temperature
-        )
+        # Generate candidates using generate() directly to control parameters
+        candidates = []
+        for _ in range(config.num_candidates):
+            output = generate(
+                self.model,
+                prompt,
+                max_len=config.max_length,
+                temperature=config.temperature
+            )
+            candidates.append(output)
         
         # Score candidates by emotion distance
         scored = []

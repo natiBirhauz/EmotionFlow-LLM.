@@ -117,19 +117,11 @@ class MultiHeadEmotionAttention(nn.Module):
             out = head(x, emotion)  # [B, S, head_dim]
             head_outputs.append(out)
         
-        # Stack heads: [B, S, num_heads, head_dim]
-        stacked = torch.stack(head_outputs, dim=2)
+        # Concatenate all heads: [B, S, num_heads * head_dim] = [B, S, D]
+        concatenated = torch.cat(head_outputs, dim=-1)
         
-        # Emotion weights for combining heads: [B, S, num_heads, 1]
-        weights = emotion.unsqueeze(-1)
-        
-        # Weighted combination: sum over heads dimension
-        # [B, S, num_heads, head_dim] * [B, S, num_heads, 1] -> [B, S, num_heads, head_dim]
-        weighted = stacked * weights
-        combined = weighted.sum(dim=2)  # [B, S, head_dim * num_heads] = [B, S, D]
-        
-        # Final output projection
-        output = self.out_proj(combined)
+        # Final output projection (with emotion weighting integrated)
+        output = self.out_proj(concatenated)
         
         return output
     
