@@ -10,6 +10,48 @@ from flask import Flask, jsonify, request
 app = Flask(__name__)
 
 
+def analyze_text_emotions(text: str, api_key: str) -> dict:
+    """Analyze text to detect emotional content using GPT."""
+    if not api_key:
+        return None
+
+    request_data = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are an emotion analysis expert. Analyze text and rate the presence of Plutchik's 8 emotions (joy, sadness, anger, fear, trust, disgust, surprise, anticipation) on a scale of 0.0 to 1.0. Return ONLY a JSON object with emotion names as keys and decimal values.",
+            },
+            {
+                "role": "user",
+                "content": f"Analyze the emotional content of this text and return emotion scores:\n\n{text}\n\nReturn format: {{\"joy\": 0.0, \"sadness\": 0.0, \"anger\": 0.0, \"fear\": 0.0, \"trust\": 0.0, \"disgust\": 0.0, \"surprise\": 0.0, \"anticipation\": 0.0}}",
+            },
+        ],
+        "temperature": 0.3,  # Lower temperature for consistent analysis
+        "max_tokens": 150,
+    }
+
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/chat/completions",
+        data=json.dumps(request_data).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=25) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            content = payload.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            # Parse JSON response
+            emotions = json.loads(content)
+            return emotions
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
+        return None
+
+
 def get_api_key(user_api_key: str | None) -> str | None:
     # If user_api_key is "FREE_USE", use the shared key for authenticated free users
     if user_api_key == "FREE_USE":
@@ -551,7 +593,22 @@ def index():
             
             <!-- Output -->
             <div class="card">
-                <h2>📝 Output</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h2 style="margin: 0;">📝 Output</h2>
+                    <button onclick="toggleAnalyzer()" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">🔍 Analyze Text</button>
+                </div>
+                
+                <div id="analyzerSection" style="display: none; margin-bottom: 20px; padding: 16px; background: rgba(0, 0, 0, 0.3); border-radius: 8px; border: 1px solid rgba(167, 139, 250, 0.2);">
+                    <h3 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px;">📊 Text Emotion Analyzer</h3>
+                    <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">Paste any text to analyze its emotional content</p>
+                    <textarea id="analyzeText" placeholder="Paste text here to analyze emotions..." style="width: 100%; min-height: 100px; padding: 12px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #e2e8f0; font-family: inherit; font-size: 14px; resize: vertical; margin-bottom: 12px;"></textarea>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="analyzeText()" id="analyzeBtn" style="padding: 8px 16px; background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">Analyze Emotions</button>
+                        <button onclick="applyAnalyzedEmotions()" id="applyBtn" style="padding: 8px 16px; background: rgba(52, 211, 153, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 6px; color: #86efac; cursor: pointer; font-size: 13px; display: none;">Apply to Sliders</button>
+                    </div>
+                    <div id="analyzeResult" style="margin-top: 12px;"></div>
+                </div>
+                
                 <div id="variationsContainer"></div>
                 <div class="output-text" id="outputBox">Your polished draft will appear here...</div>
                 <div id="emotionInsight" style="margin-top: 16px; padding: 12px; background: rgba(167, 139, 250, 0.1); border-radius: 8px; color: #cbd5e1; font-size: 13px; border: 1px solid rgba(167, 139, 250, 0.2); display: none;"></div>
@@ -793,6 +850,110 @@ def index():
                     btnElement.style.background = '';
                 }, 2000);
             });
+        }
+        
+        // Toggle analyzer
+        function toggleAnalyzer() {
+            const section = document.getElementById('analyzerSection');
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        // Store analyzed emotions
+        let lastAnalyzedEmotions = null;
+        
+        // Analyze text
+        async function analyzeText() {
+            const text = document.getElementById('analyzeText').value.trim();
+            let apiKey = document.getElementById('apiKey').value.trim();
+            
+            if (!text) {
+                showStatus('Please enter text to analyze', 'error');
+                return;
+            }
+            
+            // Check for API key
+            const user = localStorage.getItem('emotionflow_user');
+            if (user && !apiKey) {
+                const userSession = JSON.parse(user);
+                if (userSession.freeUses > 0) {
+                    apiKey = 'FREE_USE';
+                } else {
+                    showStatus('Please enter your OpenAI API key to analyze', 'error');
+                    return;
+                }
+            } else if (!apiKey) {
+                showStatus('Please sign in or enter your API key to analyze', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('analyzeBtn');
+            btn.disabled = true;
+            btn.textContent = 'Analyzing...';
+            
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, api_key: apiKey })
+                });
+                
+                const data = await response.json();
+                if (data.ok && data.emotions) {
+                    lastAnalyzedEmotions = data.emotions;
+                    displayAnalysisResult(data.emotions);
+                    document.getElementById('applyBtn').style.display = 'inline-block';
+                    showStatus('Analysis complete!', 'success');
+                } else {
+                    showStatus(data.message || 'Analysis failed', 'error');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Analyze Emotions';
+            }
+        }
+        
+        // Display analysis result
+        function displayAnalysisResult(emotions) {
+            const resultDiv = document.getElementById('analyzeResult');
+            const sorted = Object.entries(emotions).sort((a, b) => b[1] - a[1]);
+            
+            let html = '<div style="margin-top: 12px;">';
+            html += '<h4 style="color: #a78bfa; font-size: 13px; margin-bottom: 8px;">Detected Emotions:</h4>';
+            
+            sorted.forEach(([emotion, value]) => {
+                const percentage = (value * 100).toFixed(0);
+                const barWidth = percentage;
+                html += `
+                    <div style="margin-bottom: 8px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px;">
+                            <span style="color: #cbd5e1;">${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</span>
+                            <span style="color: #60a5fa; font-weight: 600;">${percentage}%</span>
+                        </div>
+                        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+                            <div style="width: ${barWidth}%; height: 100%; background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%); border-radius: 3px;"></div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            resultDiv.innerHTML = html;
+        }
+        
+        // Apply analyzed emotions to sliders
+        function applyAnalyzedEmotions() {
+            if (!lastAnalyzedEmotions) return;
+            
+            EMOTIONS.forEach(emotion => {
+                const value = lastAnalyzedEmotions[emotion] || 0;
+                document.getElementById(emotion).value = value;
+                document.getElementById(`${emotion}Value`).textContent = (value * 100).toFixed(0) + '%';
+            });
+            
+            showStatus('Emotions applied to sliders!', 'success');
+            toggleAnalyzer();
         }
         
         // Update charts with error handling
@@ -1125,6 +1286,41 @@ def generate_api():
         }), 400
 
     return jsonify({"ok": True, "results": results})
+
+
+@app.route("/api/analyze", methods=["POST"])
+def analyze_api():
+    """Analyze text for emotional content."""
+    payload = request.get_json(silent=True) or {}
+    
+    text = payload.get("text", "").strip()
+    api_key = get_api_key(payload.get("api_key"))
+    
+    if not text:
+        return jsonify({
+            "ok": False,
+            "message": "Please provide text to analyze.",
+        }), 400
+    
+    if not api_key:
+        return jsonify({
+            "ok": False,
+            "message": "No API key available for analysis.",
+        }), 400
+    
+    emotions = analyze_text_emotions(text, api_key)
+    
+    if not emotions:
+        return jsonify({
+            "ok": False,
+            "message": "Failed to analyze text. Please try again.",
+        }), 400
+    
+    return jsonify({
+        "ok": True,
+        "emotions": emotions,
+        "text": text
+    })
 
 
 @app.route("/health", methods=["GET"])
