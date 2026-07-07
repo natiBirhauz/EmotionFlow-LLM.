@@ -1,262 +1,74 @@
 # EmotionFlow-LLM 🎭
 
-> An experimental transformer architecture that integrates emotional awareness into language generation
+EmotionFlow-LLM is an experimental transformer-style language model that blends token generation with an 8-dimensional emotion profile. The project now also includes a polished web studio for generating stories, emails, pitches, and social posts with emotional controls and optional API-key support.
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-red.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-![Neuron Network Visualization](neuron_network.png)
+---
+
+## ✨ What’s new
+
+- A redesigned Gradio app for real drafting workflows
+- Emotion-driven controls for story, email, pitch, and social writing
+- Optional OpenAI API-key support for higher-quality output
+- Vercel-ready API endpoint for hosted use
+- Cleaner repo structure and refreshed documentation
 
 ---
 
-## 🌟 Key Features
+## 🚀 Quick start
 
-- 🧠 **Emotion-Aware Attention**: Modifies transformer attention using 8-dimensional emotion vectors
-- 🎨 **Plutchik's Wheel**: Based on established emotion theory (joy, sadness, anger, fear, trust, disgust, surprise, anticipation)
-- 🔍 **Interpretable Trajectories**: Track how emotions evolve across transformer layers
-- 🎲 **Multi-Sample Generation**: Generate 20 diverse candidates with emotion profiling
-- 📊 **Rich Visualizations**: Neuron-level emotion coloring, heatmaps, attention patterns, and more
-- 🔬 **Neuron-Level Analysis**: See how individual neurons specialize in different emotions
-- 🎛️ **Emotion Conditioning**: Control emotional tone by specifying target emotion profiles (NEW!)
-- 🌐 **Interactive Web UI**: Gradio-based interface for live demonstrations (NEW!)
-
----
-
-## 🚀 Quick Start
-
-### Installation
+### 1) Install dependencies
 
 ```bash
-# Clone the repository
-git clone https://github.com/natiBirhauz/EmotionFlow-LLM.git
-cd EmotionFlow-LLM
-
-# Install dependencies
-pip install torch matplotlib numpy scikit-learn
+pip install -r requirements.txt
+pip install gradio
 ```
 
-### Run Demo
+### 2) Run the local studio
 
 ```bash
-# Run the main demo
-python emotionflow_llm.py
-
-# Generate standard visualizations
-python visualize.py
-
-# Generate neuron-level emotion visualizations
-python neuron_emotion_viz.py
-
-# Launch interactive web UI (NEW!)
 python app.py
-# Then open http://localhost:7860 in your browser
 ```
 
-### Expected Output
+Then open http://localhost:7860
 
+### 3) Run the model demo
+
+```bash
+python emotionflow_llm.py
 ```
-======================================================================
-EmotionFlow-LLM Demo
-======================================================================
 
-Device: cpu
-Model configuration:
-  - Vocabulary size: 10000
-  - Word dimension: 128
-  - Emotion dimension: 8
-  - Transformer layers: 3
-  - Model dimension: 136
+### 4) Optional: deploy to Vercel
 
-Total parameters: 3,348,936
-
-Generated 5 samples
-Emotion analysis:
-  Output 1:         fear (length: 30)
-  Output 2:         fear (length: 30)
-  Output 3:        anger (length: 30)
-  ...
-```
+Set an environment variable named OPENAI_API_KEY in Vercel, then deploy the project. The repository includes a Vercel configuration at [vercel.json](vercel.json) and an API endpoint at [api/generate.py](api/generate.py).
 
 ---
 
-## 🏗️ Architecture
+## 🧠 Project structure
 
-### Overview
-
-EmotionFlow-LLM combines standard word embeddings with learned emotion embeddings, then modifies the transformer's attention mechanism to incorporate emotional context.
-
-```
-Input Text
-    ↓
-[Token Embedding]
-    ├─→ Word Embeddings (128-dim)
-    └─→ Emotion Embeddings (8-dim)
-         ↓
-    Concatenate → (136-dim)
-         ↓
-[Emotion-Aware Transformer × 3]
-         ↓
-[Language Model Head]
-         ↓
-[Multi-Sample Generation]
-         ↓
-    Final Output
-```
-
-### Emotion-Aware Attention
-
-The key innovation: emotion vectors modify queries and keys in the attention mechanism:
-
-```python
-emotion_bias = Linear(emotion)
-Q' = Q + emotion_bias
-K' = K + emotion_bias
-attention_scores = softmax(Q' @ K'.T / √d) @ V
-```
-
-**Result:** Tokens with similar emotional context attend more strongly to each other.
+- [app.py](app.py) — the redesigned web studio
+- [emotionflow_llm/](emotionflow_llm/) — core model modules
+- [tests/](tests/) — regression tests for the model and app generation flow
+- [api/generate.py](api/generate.py) — Vercel-compatible API endpoint
+- [vercel.json](vercel.json) — Vercel deployment config
 
 ---
 
-## 📊 Visualizations
+## 🔬 Usage ideas
 
-### Standard Visualizations (`python visualize.py`)
-
-![Architecture Overview](viz_architecture.png)
-*Network architecture and emotion radar chart*
-
-![Emotion Encoding](viz_emotion_encoding.png)
-*Emotion heatmaps and dominant emotions per token*
-
-![Attention Patterns](viz_attention.png)
-*Attention weight matrices across all layers*
-
-![Emotion Influence](viz_emotion_influence.png)
-*Emotion bias magnitude, activation trajectories, and entropy impact*
-
-### Neuron-Level Visualizations (`python neuron_emotion_viz.py`)
-
-![Neuron Network](neuron_network.png)
-*Each neuron colored by its dominant emotion - shows emotional specialization*
-
-![Neuron Heatmap](neuron_heatmap.png)
-*Correlation between individual neurons and emotions*
-
-![Emotion Flow](emotion_flow.png)
-*How emotion distribution changes across layers*
-
-![Neuron Connectivity](neuron_connectivity.png)
-*Top neurons for each emotion tracked across layers*
+- Generate a story with a dark, suspenseful emotional profile
+- Draft an email with a calm and reassuring tone
+- Shape a pitch around joy, trust, and anticipation
+- Create social posts with stronger surprise or fear energy
 
 ---
 
-## 💻 Usage Examples
+## 📦 Notes
 
-### Basic Generation
-
-```python
-from emotionflow_llm import EmotionFlowLLM, generate
-
-model = EmotionFlowLLM()
-prompt = torch.randint(0, VOCAB_SIZE, (1, 10))
-output = generate(model, prompt, max_len=20, temperature=0.9)
-```
-
-### Multi-Sample Generation
-
-```python
-from emotionflow_llm import generate_samples, emotion_profile
-
-# Generate 20 candidates
-samples = generate_samples(model, prompt, n=20)
-
-# Analyze emotions
-for i, sample in enumerate(samples):
-    emotion = emotion_profile(model, sample)
-    print(f"Sample {i}: {emotion}")
-```
-
-### Emotion Trajectory
-
-```python
-from emotionflow_llm import collect_emotion_trajectory
-
-model(tokens)  # Forward pass
-trajectory = collect_emotion_trajectory(model)
-print(f"Layer activations: {trajectory}")
-```
-
-### Emotion Conditioning (NEW!)
-
-Control the emotional tone of generated text:
-
-```python
-from emotionflow_llm.conditioning import EmotionConditioner, create_emotion_config
-
-model = EmotionFlowLLM()
-conditioner = EmotionConditioner(model)
-
-# Specify target emotions (e.g., 70% trust, 30% joy)
-config = create_emotion_config(
-    emotion_dict={"trust": 0.7, "joy": 0.3},
-    num_candidates=50,
-    temperature=0.9
-)
-
-# Generate text matching target emotions
-outputs = conditioner.generate_conditioned(prompt, config)
-# Returns samples closest to target emotional profile
-```
-
----
-
-## 🔬 How It Works
-
-### 1. Emotion Vectors
-
-Each token receives an 8-dimensional emotion vector:
-
-```python
-emotion_vector = [joy, sadness, anger, fear, trust, disgust, surprise, anticipation]
-# All values in [0, 1] via sigmoid activation
-```
-
-### 2. Emotion Encoding
-
-The `EmotionEncoder` learns to map token IDs to emotion space:
-
-```python
-class EmotionEncoder(nn.Module):
-    def __init__(self, vocab_size, emotion_dim=8):
-        self.embedding = nn.Embedding(vocab_size, emotion_dim)
-    
-    def forward(self, tokens):
-        emotions = torch.sigmoid(self.embedding(tokens))
-        return self.validate(emotions)  # Clamp, handle NaN/inf
-```
-
-### 3. Neuron Specialization
-
-Individual neurons in hidden layers specialize in different emotions. The neuron visualization shows:
-- **Color-coded neurons**: Each neuron's dominant emotion
-- **Size indicates strength**: Larger circles = stronger emotion correlation
-- **Layer evolution**: How neurons shift emotional alignment across layers
-
----
-
-## 📈 Model Specifications
-
-| Component | Dimensions | Parameters |
-|-----------|-----------|-----------|
-| Vocabulary | 10,000 tokens | - |
-| Word Embeddings | 128-dim | 1,280,000 |
-| Emotion Embeddings | 8-dim | 80,000 |
-| Transformer Layers | 3 layers | ~2,000,000 |
-| Model Dimension | 136-dim | - |
-| **Total Parameters** | - | **3,348,936** |
-
----
+This project is still an experimental research/demo project. The web app is designed to feel polished and practical, but the underlying model is intentionally lightweight and educational rather than production-trained.
 
 ## 🎯 Research Motivation
 
