@@ -57,18 +57,25 @@ def annotate_text_with_emotions(text: str, api_key: str, language: str = "englis
     if not api_key:
         return None
 
-    language_instruction = "in English" if language == "english" else "in Hebrew (עברית)"
+    if language == "hebrew":
+        language_instruction = "in Hebrew (עברית)"
+        system_msg = "אתה מומחה לניתוח רגשות. נתח טקסט בעברית וזהה את הרגש העיקרי (שמחה, עצב, כעס, פחד, אמון, גועל, הפתעה, ציפייה) לכל משפט או ביטוי. החזר רק מערך JSON שבו כל פריט כולל 'text' (המשפט/ביטוי) ו-'emotion' (אחד מ-8 הרגשות באנגלית)."
+        user_msg = f"נתח את הטקסט הזה בעברית ותייג כל משפט/ביטוי עם הרגש העיקרי שלו:\n\n{text}\n\nפורמט החזרה: [{{\"text\": \"משפט כאן\", \"emotion\": \"joy\"}}, ...]"
+    else:
+        language_instruction = "in English"
+        system_msg = "You are an emotion analysis expert. Analyze text in English and identify the PRIMARY emotion (joy, sadness, anger, fear, trust, disgust, surprise, anticipation) for each sentence or phrase. Return ONLY a JSON array where each item has 'text' (the sentence/phrase) and 'emotion' (one of the 8 emotions)."
+        user_msg = f"Analyze this text in English and label each sentence/phrase with its primary emotion:\n\n{text}\n\nReturn format: [{{\"text\": \"sentence here\", \"emotion\": \"joy\"}}, ...]"
     
     request_data = {
         "model": "gpt-4o-mini",
         "messages": [
             {
                 "role": "system",
-                "content": f"You are an emotion analysis expert. Analyze text {language_instruction} and identify the PRIMARY emotion (joy, sadness, anger, fear, trust, disgust, surprise, anticipation) for each sentence or phrase. Return ONLY a JSON array where each item has 'text' (the sentence/phrase) and 'emotion' (one of the 8 emotions).",
+                "content": system_msg,
             },
             {
                 "role": "user",
-                "content": f"Analyze this text {language_instruction} and label each sentence/phrase with its primary emotion:\n\n{text}\n\nReturn format: [{{\"text\": \"sentence here\", \"emotion\": \"joy\"}}, ...]",
+                "content": user_msg,
             },
         ],
         "temperature": 0.3,
@@ -656,8 +663,22 @@ def index():
                     </div>
                     
                     <div id="wheelContainer" style="display: none; margin-bottom: 16px;">
-                        <canvas id="plutchikWheel" width="500" height="500" style="display: block; margin: 0 auto; cursor: crosshair; border-radius: 50%; background: rgba(0,0,0,0.3);"></canvas>
+                        <canvas id="plutchikWheel" width="600" height="600" style="display: block; margin: 0 auto; cursor: crosshair; border-radius: 50%; background: rgba(0,0,0,0.3);"></canvas>
                         <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 8px;">Click on the wheel to set emotions</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 16px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                        <h4 style="font-size: 12px; color: #a78bfa; margin-bottom: 8px;">Emotion Colors Guide:</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
+                            <div><span style="color: #fbbf24; font-weight: 600;">●</span> Joy</div>
+                            <div><span style="color: #60a5fa; font-weight: 600;">●</span> Sadness</div>
+                            <div><span style="color: #ef4444; font-weight: 600;">●</span> Anger</div>
+                            <div><span style="color: #a78bfa; font-weight: 600;">●</span> Fear</div>
+                            <div><span style="color: #34d399; font-weight: 600;">●</span> Trust</div>
+                            <div><span style="color: #84cc16; font-weight: 600;">●</span> Disgust</div>
+                            <div><span style="color: #f59e0b; font-weight: 600;">●</span> Surprise</div>
+                            <div><span style="color: #ec4899; font-weight: 600;">●</span> Anticipation</div>
+                        </div>
                     </div>
                     
                     <div class="emotion-grid" id="emotionSliders"></div>
@@ -870,7 +891,7 @@ def index():
                 div.className = 'form-group';
                 div.innerHTML = `
                     <div class="slider-label">
-                        <label style="font-size: 13px; font-weight: 500;">${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</label>
+                        <label style="font-size: 13px; font-weight: 600; color: ${EMOTION_COLORS[emotion]};">${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</label>
                         <span class="slider-value" id="${emotion}Value">${(emotionValues[emotion] * 100).toFixed(0)}%</span>
                     </div>
                     <input type="range" id="${emotion}" min="0" max="1" value="${emotionValues[emotion]}" step="0.05">
@@ -1077,7 +1098,7 @@ def index():
             const ctx = canvas.getContext('2d');
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
-            const radius = 180;  // Increased to 180 for 500x500 canvas
+            const radius = 220;  // Increased for 600x600 canvas
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
@@ -1101,7 +1122,7 @@ def index():
                 
                 // Draw label - positioned with plenty of space
                 const labelAngle = startAngle + angleStep / 2;
-                const labelRadius = radius + 50;  // Increased from 35 to 50
+                const labelRadius = radius + 65;  // Increased spacing
                 const labelX = centerX + Math.cos(labelAngle) * labelRadius;
                 const labelY = centerY + Math.sin(labelAngle) * labelRadius;
                 
@@ -1110,13 +1131,13 @@ def index():
                 ctx.textBaseline = 'middle';
                 
                 ctx.fillStyle = EMOTION_COLORS[emotion];
-                ctx.font = 'bold 14px sans-serif';  // Increased font size
+                ctx.font = 'bold 16px sans-serif';  // Larger font
                 ctx.fillText(emotion.charAt(0).toUpperCase() + emotion.slice(1), labelX, labelY);
             });
             
             // Draw center circle
             ctx.beginPath();
-            ctx.arc(centerX, centerY, 12, 0, Math.PI * 2);
+            ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
             ctx.fillStyle = '#a78bfa';
             ctx.fill();
         }
@@ -1133,7 +1154,7 @@ def index():
                 const angle = Math.atan2(y, x) + Math.PI / 2;
                 const normalizedAngle = (angle + Math.PI * 2) % (Math.PI * 2);
                 const distance = Math.sqrt(x * x + y * y);
-                const maxRadius = 180;  // Updated to match new radius
+                const maxRadius = 220;  // Updated to match new radius
                 
                 // Determine which emotion was clicked
                 const angleStep = (Math.PI * 2) / EMOTIONS.length;
@@ -1410,7 +1431,7 @@ def index():
                                         <h3 style="color: #a78bfa; font-size: 16px; margin: 0;">Variation ${idx + 1}</h3>
                                         <div style="display: flex; gap: 8px; align-items: center;">
                                             <span style="font-size: 12px; color: #94a3b8;">${wordCount} words</span>
-                                            <button onclick="copyToClipboard(\`${result.draft.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`, this)" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">📋 Copy</button>
+                                            <button class="copy-btn-${idx}" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">📋 Copy</button>
                                         </div>
                                     </div>
                                     <div${rtlClass} style="white-space: pre-wrap; line-height: 1.6; font-size: 14px; margin-bottom: 12px;">${coloredText}</div>
@@ -1423,6 +1444,17 @@ def index():
                         
                         document.getElementById('outputBox').innerHTML = html;
                         document.getElementById('emotionInsight').style.display = 'none';
+                        
+                        // Wire up copy buttons
+                        results.forEach((result, idx) => {
+                            const btn = document.querySelector('.copy-btn-' + idx);
+                            if (btn) {
+                                btn.addEventListener('click', function() {
+                                    copyToClipboard(result.draft, this);
+                                });
+                            }
+                        });
+                        
                         // Update charts with first variation's emotions
                         updateCharts(results[0].emotions);
                     }
