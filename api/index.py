@@ -66,6 +66,7 @@ def index():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EmotionFlow Studio</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.0.0/dist/chart.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -74,58 +75,62 @@ def index():
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             padding: 20px;
         }
         
         .container {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 900px;
-            width: 100%;
-            overflow: hidden;
+            max-width: 1400px;
+            margin: 0 auto;
         }
         
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 40px 20px;
             text-align: center;
+            margin-bottom: 40px;
         }
         
         .header h1 {
-            font-size: 32px;
+            font-size: 42px;
             margin-bottom: 10px;
+            background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
         .header p {
-            font-size: 16px;
-            opacity: 0.9;
+            font-size: 18px;
+            opacity: 0.8;
         }
         
-        .content {
+        .main-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 30px;
-            padding: 40px;
+            margin-bottom: 40px;
         }
         
-        @media (max-width: 768px) {
-            .content {
+        @media (max-width: 1024px) {
+            .main-grid {
                 grid-template-columns: 1fr;
             }
         }
         
-        .form-section h2 {
+        .card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .card h2 {
             font-size: 20px;
             margin-bottom: 20px;
-            color: #333;
+            color: #a78bfa;
         }
         
         .form-group {
@@ -135,33 +140,34 @@ def index():
         label {
             display: block;
             margin-bottom: 8px;
-            color: #555;
+            color: #cbd5e1;
             font-weight: 500;
             font-size: 14px;
         }
         
         input[type="text"],
         input[type="password"],
-        input[type="number"],
         select,
         textarea {
             width: 100%;
             padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #e2e8f0;
             font-family: inherit;
             font-size: 14px;
-            transition: border-color 0.3s;
+            transition: all 0.3s;
         }
         
         input[type="text"]:focus,
         input[type="password"]:focus,
-        input[type="number"]:focus,
         select:focus,
         textarea:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #a78bfa;
+            background: rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
         }
         
         textarea {
@@ -172,14 +178,15 @@ def index():
         .slider-group {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+            margin-bottom: 12px;
         }
         
         input[type="range"] {
             flex: 1;
             height: 6px;
             border-radius: 3px;
-            background: #ddd;
+            background: rgba(255, 255, 255, 0.1);
             outline: none;
             -webkit-appearance: none;
             appearance: none;
@@ -188,139 +195,120 @@ def index():
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
-            background: #667eea;
+            background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%);
             cursor: pointer;
+            box-shadow: 0 0 10px rgba(167, 139, 250, 0.4);
         }
         
         input[type="range"]::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
-            background: #667eea;
+            background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%);
             cursor: pointer;
             border: none;
+            box-shadow: 0 0 10px rgba(167, 139, 250, 0.4);
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
         }
         
         .slider-value {
-            min-width: 40px;
+            min-width: 35px;
             text-align: right;
             font-weight: 600;
-            color: #667eea;
+            color: #60a5fa;
+            font-size: 13px;
         }
         
-        .button-group {
+        .emotion-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 30px;
+            gap: 12px;
         }
         
-        button {
-            padding: 12px 24px;
+        .emotion-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            margin-bottom: 16px;
+        }
+        
+        .controls-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .btn-generate {
+            grid-column: span 2;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%);
+            color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-        }
-        
-        .btn-generate {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            grid-column: span 2;
+            margin-top: 10px;
         }
         
         .btn-generate:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 10px 30px rgba(167, 139, 250, 0.3);
         }
         
         .btn-generate:disabled {
-            opacity: 0.6;
+            opacity: 0.5;
             cursor: not-allowed;
         }
         
-        .btn-clear {
-            background: #f0f0f0;
-            color: #333;
-        }
-        
-        .btn-clear:hover {
-            background: #e0e0e0;
-        }
-        
-        .output-section {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .output-section h2 {
-            font-size: 20px;
-            margin-bottom: 20px;
-            color: #333;
-        }
-        
-        .output-box {
-            flex: 1;
-            background: #f9f9f9;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            padding: 20px;
-            overflow-y: auto;
-            font-size: 14px;
+        .output-text {
+            white-space: pre-wrap;
             line-height: 1.6;
-            color: #333;
-            min-height: 250px;
+            color: #cbd5e1;
+            font-size: 14px;
+            max-height: 500px;
+            overflow-y: auto;
         }
         
-        .output-box.empty {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #999;
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
         }
         
-        .loading {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            margin: 0 4px;
-            background: #667eea;
-            border-radius: 50%;
-            animation: pulse 1.4s infinite;
+        .chart-wrapper {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            position: relative;
+            min-height: 300px;
         }
         
-        .loading:nth-child(1) {
-            animation-delay: 0s;
-        }
-        
-        .loading:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-        
-        .loading:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-        
-        @keyframes pulse {
-            0%, 100% {
-                opacity: 0.3;
-            }
-            50% {
-                opacity: 1;
+        @media (max-width: 768px) {
+            .charts-container {
+                grid-template-columns: 1fr;
             }
         }
         
         .status-message {
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
             font-size: 14px;
             display: none;
+            animation: slideIn 0.3s ease;
         }
         
         .status-message.show {
@@ -328,167 +316,371 @@ def index():
         }
         
         .status-message.error {
-            background: #fee;
-            color: #c33;
-            border: 1px solid #fcc;
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
         }
         
         .status-message.success {
-            background: #efe;
-            color: #3c3;
-            border: 1px solid #cfc;
+            background: rgba(52, 211, 153, 0.2);
+            color: #86efac;
+            border: 1px solid rgba(52, 211, 153, 0.3);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            margin: 0 4px;
+            background: #a78bfa;
+            border-radius: 50%;
+            animation: pulse 1.4s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .examples {
+            margin-top: 30px;
+        }
+        
+        .examples h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #a78bfa;
+        }
+        
+        .example-btn {
+            display: inline-block;
+            padding: 10px 16px;
+            background: rgba(167, 139, 250, 0.1);
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            border-radius: 6px;
+            color: #cbd5e1;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+            font-size: 13px;
+        }
+        
+        .example-btn:hover {
+            background: rgba(167, 139, 250, 0.2);
+            border-color: rgba(167, 139, 250, 0.5);
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎭 EmotionFlow Studio</h1>
-            <p>Generate creative text with emotional controls</p>
+            <h1>✨ EmotionFlow Studio</h1>
+            <p>Turn a simple prompt into a polished draft with emotional controls</p>
         </div>
         
-        <div class="content">
-            <div class="form-section">
-                <h2>Inputs</h2>
+        <div class="main-grid">
+            <!-- Input Controls -->
+            <div class="card">
+                <h2>🎛️ Controls</h2>
                 
                 <div class="status-message" id="statusMessage"></div>
                 
                 <div class="form-group">
-                    <label for="prompt">Prompt</label>
-                    <textarea id="prompt" placeholder="Enter your prompt here...">A hidden garden at dawn</textarea>
+                    <label>Prompt or topic</label>
+                    <textarea id="prompt" placeholder="Describe the scene, message, or idea...">The hidden library at dawn</textarea>
                 </div>
                 
                 <div class="form-group">
-                    <label for="apiKey">OpenAI API Key</label>
-                    <input type="password" id="apiKey" placeholder="sk-...">
-                </div>
-                
-                <div class="form-group">
-                    <label for="mode">Mode</label>
+                    <label>Output format</label>
                     <select id="mode">
-                        <option value="story">Story</option>
-                        <option value="email">Email</option>
-                        <option value="pitch">Pitch</option>
-                        <option value="social">Social Media</option>
+                        <option value="story">📖 Story</option>
+                        <option value="email">📧 Email</option>
+                        <option value="pitch">💼 Pitch</option>
+                        <option value="social">📱 Social Media</option>
                     </select>
                 </div>
                 
-                <div class="form-group">
-                    <label for="creativity">Creativity</label>
-                    <div class="slider-group">
-                        <input type="range" id="creativity" min="0" max="1" step="0.1" value="0.7">
-                        <span class="slider-value" id="creativityValue">0.7</span>
+                <div class="controls-row">
+                    <div class="form-group">
+                        <div class="slider-label">
+                            <label>Length</label>
+                            <span class="slider-value" id="lengthValue">3</span>
+                        </div>
+                        <input type="range" id="length" min="2" max="5" value="3" step="1">
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="slider-label">
+                            <label>Creativity</label>
+                            <span class="slider-value" id="creativityValue">0.7</span>
+                        </div>
+                        <input type="range" id="creativity" min="0.2" max="1.0" value="0.7" step="0.1">
                     </div>
                 </div>
                 
-                <div class="button-group">
-                    <button class="btn-generate" id="generateBtn">Generate</button>
-                    <button class="btn-clear" id="clearBtn">Clear</button>
+                <div class="form-group">
+                    <div class="slider-label">
+                        <label>Variations</label>
+                        <span class="slider-value" id="samplesValue">3</span>
+                    </div>
+                    <input type="range" id="samples" min="1" max="4" value="3" step="1">
                 </div>
+                
+                <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; margin-top: 20px;">
+                    <h3 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px;">Emotional Tone</h3>
+                    <div class="emotion-grid" id="emotionSliders"></div>
+                </div>
+                
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>OpenAI API Key (optional)</label>
+                    <input type="password" id="apiKey" placeholder="sk-... (leave blank for local generation)">
+                </div>
+                
+                <button class="btn-generate" id="generateBtn">Generate Draft</button>
             </div>
             
-            <div class="output-section">
-                <h2>Output</h2>
-                <div class="output-box empty" id="outputBox">
-                    Waiting for generation...
-                </div>
+            <!-- Output -->
+            <div class="card">
+                <h2>📝 Output</h2>
+                <div class="output-text" id="outputBox">Your polished draft will appear here...</div>
+                <div id="emotionInsight" style="margin-top: 16px; padding: 12px; background: rgba(167, 139, 250, 0.1); border-radius: 8px; color: #cbd5e1; font-size: 13px; border: 1px solid rgba(167, 139, 250, 0.2);"></div>
             </div>
+        </div>
+        
+        <!-- Charts -->
+        <div class="charts-container">
+            <div class="chart-wrapper">
+                <canvas id="barChart"></canvas>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Examples -->
+        <div class="examples card">
+            <h3>🧪 Quick Examples</h3>
+            <button class="example-btn" onclick="loadExample(['The hidden library at dawn', 'story', 3, 0.7, [0.1, 0, 0, 0.5, 0.4, 0, 0.1, 0.1], 3])">Hidden Library (Story)</button>
+            <button class="example-btn" onclick="loadExample(['A launch email for a calm new app', 'email', 3, 0.8, [0.2, 0, 0, 0.4, 0, 0.1, 0.2, 0.1], 2])">Launch Email</button>
+            <button class="example-btn" onclick="loadExample(['A product pitch for a smart notebook', 'pitch', 3, 0.7, [0, 0, 0, 0.3, 0, 0.2, 0.2, 0.1], 2])">Product Pitch</button>
+            <button class="example-btn" onclick="loadExample(['A dramatic post about a city at night', 'social', 3, 0.5, [0.2, 0.1, 0.3, 0.1, 0, 0.3, 0.1, 0], 3])">Dramatic City Post</button>
         </div>
     </div>
     
     <script>
-        const promptInput = document.getElementById('prompt');
-        const apiKeyInput = document.getElementById('apiKey');
-        const modeSelect = document.getElementById('mode');
-        const creativitySlider = document.getElementById('creativity');
-        const creativityValue = document.getElementById('creativityValue');
-        const generateBtn = document.getElementById('generateBtn');
-        const clearBtn = document.getElementById('clearBtn');
-        const outputBox = document.getElementById('outputBox');
-        const statusMessage = document.getElementById('statusMessage');
+        const EMOTIONS = ["joy", "sadness", "anger", "fear", "trust", "disgust", "surprise", "anticipation"];
+        const EMOTION_LABELS = {
+            "joy": "bright and uplifting",
+            "sadness": "reflective and tender",
+            "anger": "firm and forceful",
+            "fear": "tense and shadowed",
+            "trust": "steady and reassuring",
+            "disgust": "sharp and skeptical",
+            "surprise": "electric and unexpected",
+            "anticipation": "eager and forward-looking"
+        };
         
-        // Update creativity value display
-        creativitySlider.addEventListener('input', (e) => {
-            creativityValue.textContent = parseFloat(e.target.value).toFixed(1);
-        });
+        let charts = { bar: null, radar: null };
         
-        // Show status message
-        function showStatus(message, type = 'error') {
-            statusMessage.textContent = message;
-            statusMessage.className = `status-message show ${type}`;
-            setTimeout(() => {
-                statusMessage.classList.remove('show');
-            }, 5000);
+        // Initialize emotion sliders
+        function initializeEmotions() {
+            const container = document.getElementById('emotionSliders');
+            const emotionValues = {
+                joy: 0.3, sadness: 0, anger: 0, fear: 0,
+                trust: 0.3, disgust: 0, surprise: 0.2, anticipation: 0.2
+            };
+            
+            EMOTIONS.forEach(emotion => {
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.innerHTML = `
+                    <div class="slider-label">
+                        <label style="font-size: 12px;">${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</label>
+                        <span class="slider-value" id="${emotion}Value">${emotionValues[emotion].toFixed(2)}</span>
+                    </div>
+                    <input type="range" id="${emotion}" min="0" max="1" value="${emotionValues[emotion]}" step="0.05">
+                `;
+                container.appendChild(div);
+                
+                // Update display on change
+                document.getElementById(emotion).addEventListener('input', (e) => {
+                    document.getElementById(`${emotion}Value`).textContent = parseFloat(e.target.value).toFixed(2);
+                });
+            });
         }
         
-        // Generate text
-        generateBtn.addEventListener('click', async () => {
-            const prompt = promptInput.value.trim();
-            const apiKey = apiKeyInput.value.trim();
-            const mode = modeSelect.value;
-            const creativity = parseFloat(creativitySlider.value);
+        // Get emotion values
+        function getEmotions() {
+            const emotions = {};
+            EMOTIONS.forEach(emotion => {
+                emotions[emotion] = parseFloat(document.getElementById(emotion).value);
+            });
+            return emotions;
+        }
+        
+        // Normalize emotions
+        function normalizeEmotions(emotions) {
+            const total = Object.values(emotions).reduce((a, b) => a + b, 0);
+            if (total <= 0) return Object.fromEntries(EMOTIONS.map(e => [e, 0]));
+            const normalized = {};
+            EMOTIONS.forEach(e => normalized[e] = emotions[e] / total);
+            return normalized;
+        }
+        
+        // Summarize emotions
+        function summarizeEmotions(emotions) {
+            const ranked = Object.entries(emotions).sort((a, b) => b[1] - a[1]);
+            const dominant = ranked[0][0];
+            const strength = Math.round(ranked[0][1] * 100);
+            const supporting = ranked.slice(1).filter(([_, val]) => val > 0.08).map(([name, _]) => name).slice(0, 2);
+            const supportText = supporting.length > 0 ? supporting.join(', ') : 'a calm balance';
+            return `The draft leans ${EMOTION_LABELS[dominant]} with ${strength}% intensity. Secondary notes include ${supportText}.`;
+        }
+        
+        // Update charts
+        function updateCharts(emotions) {
+            const normalized = normalizeEmotions(emotions);
+            const ordered = Object.entries(normalized).sort((a, b) => b[1] - a[1]);
+            const labels = ordered.map(([name, _]) => name.charAt(0).toUpperCase() + name.slice(1));
+            const values = ordered.map(([_, val]) => val);
+            const colors = ["#7c3aed", "#2563eb", "#f97316", "#dc2626", "#14b8a6", "#84cc16", "#f43f5e", "#eab308"];
+            
+            // Bar chart
+            if (charts.bar) charts.bar.destroy();
+            const barCtx = document.getElementById('barChart').getContext('2d');
+            charts.bar = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Emotion Balance',
+                        data: values,
+                        backgroundColor: colors.slice(0, labels.length),
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: { x: { max: 1 } }
+                }
+            });
+            
+            // Radar chart
+            if (charts.radar) charts.radar.destroy();
+            const radarCtx = document.getElementById('radarChart').getContext('2d');
+            const radarValues = EMOTIONS.map(e => normalized[e] || 0);
+            charts.radar = new Chart(radarCtx, {
+                type: 'radar',
+                data: {
+                    labels: EMOTIONS.map(e => e.charAt(0).toUpperCase() + e.slice(1)),
+                    datasets: [{
+                        label: 'Emotion Radar',
+                        data: radarValues,
+                        borderColor: '#a78bfa',
+                        backgroundColor: 'rgba(167, 139, 250, 0.2)',
+                        fill: true,
+                        pointBackgroundColor: '#a78bfa'
+                    }]
+                },
+                options: { plugins: { legend: { display: false } } }
+            });
+        }
+        
+        // Show status
+        function showStatus(message, type = 'error') {
+            const status = document.getElementById('statusMessage');
+            status.textContent = message;
+            status.className = `status-message show ${type}`;
+            setTimeout(() => status.classList.remove('show'), 5000);
+        }
+        
+        // Generate
+        document.getElementById('generateBtn').addEventListener('click', async () => {
+            const prompt = document.getElementById('prompt').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const mode = document.getElementById('mode').value;
+            const creativity = parseFloat(document.getElementById('creativity').value);
+            const emotions = getEmotions();
             
             if (!prompt) {
                 showStatus('Please enter a prompt', 'error');
                 return;
             }
             
-            if (!apiKey) {
-                showStatus('Please enter your OpenAI API key', 'error');
+            if (Object.values(emotions).reduce((a, b) => a + b, 0) === 0) {
+                showStatus('Please move at least one emotion slider', 'error');
                 return;
             }
             
-            generateBtn.disabled = true;
-            outputBox.innerHTML = '<div class="loading"></div><div class="loading"></div><div class="loading"></div>';
-            outputBox.classList.remove('empty');
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            document.getElementById('outputBox').innerHTML = '<div class="loading"></div><div class="loading"></div><div class="loading"></div> Generating...';
             
             try {
                 const response = await fetch('/api/generate', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        prompt,
-                        api_key: apiKey,
-                        mode,
-                        creativity,
-                    }),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, api_key: apiKey, mode, creativity })
                 });
                 
                 const data = await response.json();
-                
                 if (data.ok) {
-                    outputBox.innerHTML = data.draft.replace(/\\n/g, '<br>');
+                    document.getElementById('outputBox').textContent = data.draft;
+                    document.getElementById('emotionInsight').textContent = '💡 ' + summarizeEmotions(normalizeEmotions(emotions));
+                    updateCharts(emotions);
                     showStatus('Generated successfully!', 'success');
                 } else {
-                    outputBox.innerHTML = '';
-                    outputBox.classList.add('empty');
-                    showStatus(data.message || 'Generation failed', 'error');
+                    showStatus(data.message, 'error');
+                    document.getElementById('outputBox').textContent = '';
                 }
             } catch (error) {
-                outputBox.innerHTML = '';
-                outputBox.classList.add('empty');
                 showStatus(`Error: ${error.message}`, 'error');
+                document.getElementById('outputBox').textContent = '';
             } finally {
-                generateBtn.disabled = false;
+                btn.disabled = false;
             }
         });
         
-        // Clear form
-        clearBtn.addEventListener('click', () => {
-            promptInput.value = '';
-            outputBox.innerHTML = 'Waiting for generation...';
-            outputBox.classList.add('empty');
-            statusMessage.classList.remove('show');
+        // Update slider displays
+        document.getElementById('length').addEventListener('input', (e) => {
+            document.getElementById('lengthValue').textContent = e.target.value;
+        });
+        document.getElementById('creativity').addEventListener('input', (e) => {
+            document.getElementById('creativityValue').textContent = parseFloat(e.target.value).toFixed(1);
+        });
+        document.getElementById('samples').addEventListener('input', (e) => {
+            document.getElementById('samplesValue').textContent = e.target.value;
         });
         
-        // Allow Enter key to generate
-        promptInput.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                generateBtn.click();
-            }
-        });
+        // Load example
+        window.loadExample = function(example) {
+            document.getElementById('prompt').value = example[0];
+            document.getElementById('mode').value = example[1];
+            document.getElementById('length').value = example[2];
+            document.getElementById('length').dispatchEvent(new Event('input'));
+            document.getElementById('creativity').value = example[3];
+            document.getElementById('creativity').dispatchEvent(new Event('input'));
+            
+            const emotionValues = example[4];
+            EMOTIONS.forEach((emotion, index) => {
+                document.getElementById(emotion).value = emotionValues[index];
+                document.getElementById(emotion).dispatchEvent(new Event('input'));
+            });
+            
+            document.getElementById('samples').value = example[5];
+            document.getElementById('samples').dispatchEvent(new Event('input'));
+        };
+        
+        // Initialize
+        initializeEmotions();
+        updateCharts(getEmotions());
     </script>
 </body>
 </html>"""
