@@ -1,158 +1,62 @@
 # EmotionFlow-LLM
 
-**Turn emotions into words with AI-powered creative writing**
+**AI-powered creative writing guided by Plutchik's 8 emotions**
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/natiBirhauz/EmotionFlow-LLM)
 
 ## ✨ Features
 
-- 🎭 **Emotion Control** - Fine-tune 8 different emotions to shape your content
-- 🤖 **AI-Powered** - Uses GPT-4o-mini for high-quality text generation  
-- 🔐 **Google OAuth** - Sign in with Google for free usage
-- 📊 **Visual Feedback** - Interactive charts show your emotional balance
-- 🎨 **Multiple Formats** - Generate stories, emails, pitches, or social posts
-- 🆓 **Free Tier** - 1 free generation per authenticated user
+- 🎭 **8 Plutchik Emotions** - Control joy, sadness, anger, fear, trust, disgust, surprise, and anticipation
+- 🤖 **AI-Powered** - Uses GPT-4o-mini for high-quality generation  
+- 🔐 **Google OAuth** - Sign in for free usage
+- 📊 **Visual Feedback** - Interactive charts show emotional balance
+- 🎨 **Multiple Formats** - Stories, emails, pitches, or social posts
 
-## 🚀 Quick Start
+## 🚀 Quick Deploy
 
-### Deploy to Vercel (Recommended)
-
-1. Click the "Deploy with Vercel" button above
-2. Follow the [Google OAuth Setup Guide](GOOGLE_OAUTH_SETUP.md)
-3. Add environment variables in Vercel:
+1. Click "Deploy with Vercel" button above
+2. Add environment variables in Vercel:
    - `SHARED_OPENAI_API_KEY` - Your OpenAI API key
    - `GOOGLE_CLIENT_ID` - Your Google OAuth client ID
-4. Deploy!
+3. Deploy!
 
-For detailed instructions, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
-
-### Local Development
+## 💻 Local Development
 
 ```bash
-# Clone the repository
 git clone https://github.com/natiBirhauz/EmotionFlow-LLM.git
 cd EmotionFlow-LLM
-
-# Install dependencies
 pip install -r requirements.txt
 
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your API keys
+# Create .env file
+echo SHARED_OPENAI_API_KEY=your-key > .env
+echo GOOGLE_CLIENT_ID=your-google-id >> .env
 
-# Run the app
 python api/index.py
-
 # Visit http://localhost:5000
 ```
 
-## 📖 Documentation
+## 🎯 How It Works
 
-- **[Deployment Guide](DEPLOYMENT_GUIDE.md)** - Complete deployment instructions
-- **[Google OAuth Setup](GOOGLE_OAUTH_SETUP.md)** - Step-by-step OAuth configuration  
-- **[Changes Log](CHANGES.md)** - Recent updates and fixes
-- **[Technical Explanation](EXPLANATION.md)** - How EmotionFlow works
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env` file in the root directory:
-
-```env
-# Required: Your OpenAI API key for free user generations
-SHARED_OPENAI_API_KEY=sk-proj-...
-
-# Required: Google OAuth Client ID from Google Cloud Console  
-GOOGLE_CLIENT_ID=123456789-abc...xyz.apps.googleusercontent.com
-
-# Optional: Additional API key fallbacks
-OPENAI_API_KEY=sk-...
-```
-
-**Important:** Never commit your `.env` file! It's already in `.gitignore`.
-
-## 💡 How It Works
-
-1. **Sign In** - Users authenticate with Google OAuth
-2. **Free Generation** - Each user gets 1 free AI generation using your shared API key
-3. **Custom Key** - After free use, users can provide their own OpenAI API key
-4. **Emotion Control** - Adjust 8 emotion sliders to shape the content tone
-5. **AI Generation** - GPT-4o-mini creates polished content based on emotions
-6. **Visualizations** - Charts show the emotional balance of your generation
-
-## 🎯 Use Cases
-
-- **Creative Writing** - Generate story drafts with specific emotional tones
-- **Email Drafting** - Create professional emails with the right mood
-- **Marketing Copy** - Craft pitches that resonate emotionally
-- **Social Media** - Write engaging posts with intentional tone
+1. **Adjust Emotions** - Set 8 emotion sliders based on Plutchik's Wheel of Emotions
+2. **AI Generation** - GPT-4o-mini creates content matching your emotional tone
+3. **Visualize** - Charts show your emotional balance
 
 ## 🛠️ Tech Stack
 
 - **Backend:** Python, Flask
-- **Frontend:** Vanilla JavaScript, Chart.js
 - **AI:** OpenAI GPT-4o-mini
 - **Auth:** Google OAuth 2.0
+- **Charts:** Chart.js
 - **Hosting:** Vercel
-- **Styling:** Custom CSS with gradient backgrounds
 
-## 📊 Cost Estimates
+## 📊 Plutchik's 8 Emotions
 
-Using GPT-4o-mini (~270 tokens per generation):
-- Cost per generation: ~$0.00014 (0.014 cents)
-- 1,000 generations: ~$0.14
-- 10,000 generations: ~$1.40
-
-With 1 free use per user, monitor your OpenAI usage and set billing alerts.
-
-## 🐛 Troubleshooting
-
-### Chart.js not loading
-- **Fix:** Clear browser cache and refresh
-- **Cause:** CDN caching issue
-- **Details:** See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md#troubleshooting)
-
-### Google Sign-In not working  
-- **Fix:** Verify `GOOGLE_CLIENT_ID` is set in environment variables
-- **Cause:** Missing or incorrect OAuth configuration
-- **Details:** See [GOOGLE_OAUTH_SETUP.md](GOOGLE_OAUTH_SETUP.md#troubleshooting)
-
-### API key errors
-- **Fix:** Check that `SHARED_OPENAI_API_KEY` is set correctly
-- **Cause:** Missing environment variable or invalid key
-- **Details:** Verify your OpenAI API key has available credits
-
-## 🔒 Security
-
-- ✅ API keys stored as environment variables, never in code
-- ✅ `.env` files excluded from version control  
-- ✅ OAuth 2.0 authentication for user verification
-- ✅ No sensitive data exposed to frontend
-- ✅ Error messages don't leak system details
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+Based on Robert Plutchik's Wheel of Emotions (1980):
+- Joy, Sadness, Anger, Fear, Trust, Disgust, Surprise, Anticipation
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- OpenAI for GPT-4o-mini API
-- Google for OAuth authentication
-- Chart.js for beautiful visualizations
-- Vercel for seamless hosting
-
-## 📞 Support
-
-For issues or questions:
-1. Check the [Deployment Guide](DEPLOYMENT_GUIDE.md)
-2. Review [Google OAuth Setup](GOOGLE_OAUTH_SETUP.md)  
-3. Open an issue on GitHub
-4. Check browser console for error messages
+MIT License - see [LICENSE](LICENSE) file
 
 ---
 

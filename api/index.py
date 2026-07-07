@@ -546,10 +546,10 @@ def index():
         <!-- Examples -->
         <div class="examples card">
             <h3>🧪 Quick Examples</h3>
-            <button class="example-btn" onclick="loadExample(['The hidden library at dawn', 'story', 3, 0.7, [0.3, 0.1, 0, 0.6], 3])">Hidden Library (Story)</button>
-            <button class="example-btn" onclick="loadExample(['A launch email for a calm new app', 'email', 3, 0.8, [0.4, 0, 0, 0.6], 2])">Launch Email</button>
-            <button class="example-btn" onclick="loadExample(['A heartbreaking farewell letter', 'email', 3, 0.6, [0, 0.9, 0.1, 0], 2])">Sad Farewell</button>
-            <button class="example-btn" onclick="loadExample(['A dramatic post about a city at night', 'social', 3, 0.5, [0.2, 0.3, 0.2, 0.3], 3])">Dramatic City Post</button>
+            <button class="example-btn" onclick="loadExample(['The hidden library at dawn', 'story', 3, 0.7, [0.3, 0.1, 0, 0.1, 0.3, 0, 0.1, 0.2], 3])">Hidden Library</button>
+            <button class="example-btn" onclick="loadExample(['A launch email for a calm app', 'email', 3, 0.8, [0.4, 0, 0, 0, 0.5, 0, 0.1, 0], 2])">Calm Email</button>
+            <button class="example-btn" onclick="loadExample(['A heartbreaking farewell', 'story', 3, 0.6, [0, 0.9, 0, 0.1, 0, 0, 0, 0], 2])">Sad Farewell</button>
+            <button class="example-btn" onclick="loadExample(['City at night', 'social', 3, 0.5, [0.1, 0.2, 0, 0.2, 0.1, 0, 0.3, 0.1], 3])">Dramatic Post</button>
         </div>
     </div>
     
@@ -634,12 +634,16 @@ def index():
             document.getElementById('googleSignInButton').style.display = 'block';
         }
         
-        const EMOTIONS = ["joy", "sadness", "anger", "trust"];
+        const EMOTIONS = ["joy", "sadness", "anger", "fear", "trust", "disgust", "surprise", "anticipation"];
         const EMOTION_LABELS = {
             "joy": "joyful, uplifting, and optimistic",
             "sadness": "melancholic, reflective, and somber",
             "anger": "intense, forceful, and confrontational",
-            "trust": "reassuring, steady, and confident"
+            "fear": "tense, anxious, and foreboding",
+            "trust": "reassuring, steady, and confident",
+            "disgust": "critical, skeptical, and sharp",
+            "surprise": "unexpected, striking, and dramatic",
+            "anticipation": "eager, forward-looking, and exciting"
         };
         
         let charts = { bar: null, radar: null };
@@ -665,10 +669,14 @@ def index():
         function initializeEmotions() {
             const container = document.getElementById('emotionSliders');
             const emotionValues = {
-                joy: 0.5,
-                sadness: 0,
+                joy: 0.3,
+                sadness: 0.1,
                 anger: 0,
-                trust: 0.5
+                fear: 0.1,
+                trust: 0.3,
+                disgust: 0,
+                surprise: 0.1,
+                anticipation: 0.2
             };
             
             EMOTIONS.forEach(emotion => {
