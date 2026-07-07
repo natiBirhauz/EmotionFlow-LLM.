@@ -102,9 +102,9 @@ def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity
     }
     length_instruction = length_map.get(length, "moderate length")
     
-    # Adjust max_tokens based on length
-    max_tokens_map = {2: 150, 3: 250, 4: 350, 5: 450}
-    max_tokens = max_tokens_map.get(length, 250)
+    # Adjust max_tokens based on length - increased to prevent cutoff
+    max_tokens_map = {2: 200, 3: 350, 4: 500, 5: 700}
+    max_tokens = max_tokens_map.get(length, 350)
 
     request_data = {
         "model": "gpt-4o-mini",
@@ -591,28 +591,31 @@ def index():
                 <button class="btn-generate" id="generateBtn">Generate Draft</button>
             </div>
             
-            <!-- Output -->
+            <!-- Text Analyzer -->
             <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h2 style="margin: 0;">📝 Output</h2>
-                    <button onclick="toggleAnalyzer()" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">🔍 Analyze Text</button>
+                <h2>🔍 Text Emotion Analyzer</h2>
+                <p style="font-size: 13px; color: #94a3b8; margin-bottom: 16px;">Analyze any text to detect its emotional content</p>
+                
+                <div class="form-group">
+                    <label>Text to Analyze</label>
+                    <textarea id="analyzeText" placeholder="Paste or type text here to analyze its emotions..." style="width: 100%; min-height: 120px; padding: 12px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #e2e8f0; font-family: inherit; font-size: 14px; resize: vertical;"></textarea>
                 </div>
                 
-                <div id="analyzerSection" style="display: none; margin-bottom: 20px; padding: 16px; background: rgba(0, 0, 0, 0.3); border-radius: 8px; border: 1px solid rgba(167, 139, 250, 0.2);">
-                    <h3 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px;">📊 Text Emotion Analyzer</h3>
-                    <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">Paste any text to analyze its emotional content</p>
-                    <textarea id="analyzeText" placeholder="Paste text here to analyze emotions..." style="width: 100%; min-height: 100px; padding: 12px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #e2e8f0; font-family: inherit; font-size: 14px; resize: vertical; margin-bottom: 12px;"></textarea>
-                    <div style="display: flex; gap: 8px;">
-                        <button onclick="analyzeText()" id="analyzeBtn" style="padding: 8px 16px; background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">Analyze Emotions</button>
-                        <button onclick="applyAnalyzedEmotions()" id="applyBtn" style="padding: 8px 16px; background: rgba(52, 211, 153, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 6px; color: #86efac; cursor: pointer; font-size: 13px; display: none;">Apply to Sliders</button>
-                    </div>
-                    <div id="analyzeResult" style="margin-top: 12px;"></div>
+                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                    <button onclick="analyzeText()" id="analyzeBtn" style="flex: 1; padding: 12px 16px; background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s;">Analyze Emotions</button>
+                    <button onclick="applyAnalyzedEmotions()" id="applyBtn" style="flex: 1; padding: 12px 16px; background: rgba(52, 211, 153, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 8px; color: #86efac; cursor: pointer; font-size: 14px; font-weight: 600; display: none; transition: all 0.3s;">Apply to Sliders</button>
                 </div>
                 
-                <div id="variationsContainer"></div>
-                <div class="output-text" id="outputBox">Your polished draft will appear here...</div>
-                <div id="emotionInsight" style="margin-top: 16px; padding: 12px; background: rgba(167, 139, 250, 0.1); border-radius: 8px; color: #cbd5e1; font-size: 13px; border: 1px solid rgba(167, 139, 250, 0.2); display: none;"></div>
+                <div id="analyzeResult"></div>
             </div>
+        </div>
+        
+        <!-- Output Section (Full Width) -->
+        <div class="card" style="margin-bottom: 40px;">
+            <h2>📝 Output</h2>
+            <div id="variationsContainer"></div>
+            <div class="output-text" id="outputBox">Your polished draft will appear here...</div>
+            <div id="emotionInsight" style="margin-top: 16px; padding: 12px; background: rgba(167, 139, 250, 0.1); border-radius: 8px; color: #cbd5e1; font-size: 13px; border: 1px solid rgba(167, 139, 250, 0.2); display: none;"></div>
         </div>
         
         <!-- Charts -->
@@ -852,12 +855,6 @@ def index():
             });
         }
         
-        // Toggle analyzer
-        function toggleAnalyzer() {
-            const section = document.getElementById('analyzerSection');
-            section.style.display = section.style.display === 'none' ? 'block' : 'none';
-        }
-        
         // Store analyzed emotions
         let lastAnalyzedEmotions = null;
         
@@ -953,7 +950,6 @@ def index():
             });
             
             showStatus('Emotions applied to sliders!', 'success');
-            toggleAnalyzer();
         }
         
         // Update charts with error handling
