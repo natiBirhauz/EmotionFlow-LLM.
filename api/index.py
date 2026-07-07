@@ -540,6 +540,15 @@ def index():
             <p>Turn a simple prompt into a polished draft with emotional controls</p>
         </div>
         
+        <!-- Quick Examples at top -->
+        <div class="examples card" style="margin-bottom: 30px;">
+            <h3>🧪 Quick Examples</h3>
+            <button class="example-btn" id="example1">Hidden Library</button>
+            <button class="example-btn" id="example2">Calm Email</button>
+            <button class="example-btn" id="example3">Sad Farewell</button>
+            <button class="example-btn" id="example4">Dramatic Post</button>
+        </div>
+        
         <div class="main-grid">
             <!-- Input Controls -->
             <div class="card">
@@ -664,15 +673,6 @@ def index():
             <div class="chart-wrapper">
                 <canvas id="radarChart"></canvas>
             </div>
-        </div>
-        
-        <!-- Quick Examples -->
-        <div class="examples card">
-            <h3>🧪 Quick Examples</h3>
-            <button class="example-btn" id="example1">Hidden Library</button>
-            <button class="example-btn" id="example2">Calm Email</button>
-            <button class="example-btn" id="example3">Sad Farewell</button>
-            <button class="example-btn" id="example4">Dramatic Post</button>
         </div>
     </div>
     
@@ -1117,9 +1117,9 @@ def index():
             Object.entries(emotionKeywords).forEach(([emotion, keywords]) => {
                 keywords.forEach(keyword => {
                     // Escape special regex characters in keyword
-                    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const regex = new RegExp(`\\b(${escapedKeyword})\\b`, 'gi');
-                    highlightedText = highlightedText.replace(regex, `<span class="emotion-${emotion}">$1</span>`);
+                    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&');
+                    const regex = new RegExp('\\\\b(' + escapedKeyword + ')\\\\b', 'gi');
+                    highlightedText = highlightedText.replace(regex, '<span class="emotion-' + emotion + '">$1</span>');
                 });
             });
             
