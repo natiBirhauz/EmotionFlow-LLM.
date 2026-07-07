@@ -532,21 +532,12 @@ def index():
             <div id="userStatus" style="display: none;">
                 <div class="user-info">Welcome, <span id="userName"></span></div>
                 <div class="free-uses">Free uses remaining: <span id="freeUsesRemaining">1</span></div>
-                <button onclick="handleLogout()" style="padding: 8px 16px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; color: #fca5a5; cursor: pointer; font-size: 12px; margin-top: 5px;">Sign Out</button>
+                <button id="logoutBtn" style="padding: 8px 16px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; color: #fca5a5; cursor: pointer; font-size: 12px; margin-top: 5px;">Sign Out</button>
             </div>
         </div>
         <div class="header">
             <h1>✨ EmotionFlow Studio</h1>
             <p>Turn a simple prompt into a polished draft with emotional controls</p>
-        </div>
-        
-        <!-- Quick Examples at top -->
-        <div class="examples card" style="margin-bottom: 30px;">
-            <h3>🧪 Quick Examples</h3>
-            <button class="example-btn" onclick="loadExample(['The hidden library at dawn', 'story', 3, 0.7, [0.3, 0.1, 0, 0.1, 0.3, 0, 0.1, 0.2], 3])">Hidden Library</button>
-            <button class="example-btn" onclick="loadExample(['A launch email for a calm app', 'email', 3, 0.8, [0.4, 0, 0, 0, 0.5, 0, 0.1, 0], 2])">Calm Email</button>
-            <button class="example-btn" onclick="loadExample(['A heartbreaking farewell', 'story', 3, 0.6, [0, 0.9, 0, 0.1, 0, 0, 0, 0], 2])">Sad Farewell</button>
-            <button class="example-btn" onclick="loadExample(['City at night', 'social', 3, 0.5, [0.1, 0.2, 0, 0.2, 0.1, 0, 0.3, 0.1], 3])">Dramatic Post</button>
         </div>
         
         <div class="main-grid">
@@ -608,7 +599,7 @@ def index():
                 <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; margin-top: 20px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <h3 style="color: #a78bfa; font-size: 14px; margin: 0;">Emotional Tone</h3>
-                        <button onclick="toggleWheel()" style="padding: 4px 10px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 11px;">🎭 Wheel View</button>
+                        <button id="toggleWheelBtn" style="padding: 4px 10px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 11px;">🎭 Wheel View</button>
                     </div>
                     
                     <div id="wheelContainer" style="display: none; margin-bottom: 16px;">
@@ -627,11 +618,11 @@ def index():
                 <div style="margin-top: 16px;">
                     <label style="margin-bottom: 8px; display: block;">Quick Emotion Presets</label>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button onclick="setEmotionPreset('happy')" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">😊 Happy</button>
-                        <button onclick="setEmotionPreset('sad')" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">😢 Sad</button>
-                        <button onclick="setEmotionPreset('dramatic')" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">🎭 Dramatic</button>
-                        <button onclick="setEmotionPreset('calm')" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">🧘 Calm</button>
-                        <button onclick="setEmotionPreset('intense')" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">⚡ Intense</button>
+                        <button id="presetHappy" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">😊 Happy</button>
+                        <button id="presetSad" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">😢 Sad</button>
+                        <button id="presetDramatic" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">🎭 Dramatic</button>
+                        <button id="presetCalm" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">🧘 Calm</button>
+                        <button id="presetIntense" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">⚡ Intense</button>
                     </div>
                 </div>
                 
@@ -649,8 +640,8 @@ def index():
                 </div>
                 
                 <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                    <button onclick="analyzeText()" id="analyzeBtn" style="flex: 1; padding: 12px 16px; background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s;">Analyze Emotions</button>
-                    <button onclick="applyAnalyzedEmotions()" id="applyBtn" style="flex: 1; padding: 12px 16px; background: rgba(52, 211, 153, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 8px; color: #86efac; cursor: pointer; font-size: 14px; font-weight: 600; display: none; transition: all 0.3s;">Apply to Sliders</button>
+                    <button id="analyzeBtn" style="flex: 1; padding: 12px 16px; background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s;">Analyze Emotions</button>
+                    <button id="applyBtn" style="flex: 1; padding: 12px 16px; background: rgba(52, 211, 153, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 8px; color: #86efac; cursor: pointer; font-size: 14px; font-weight: 600; display: none; transition: all 0.3s;">Apply to Sliders</button>
                 </div>
                 
                 <div id="analyzeResult"></div>
@@ -673,6 +664,15 @@ def index():
             <div class="chart-wrapper">
                 <canvas id="radarChart"></canvas>
             </div>
+        </div>
+        
+        <!-- Quick Examples -->
+        <div class="examples card">
+            <h3>🧪 Quick Examples</h3>
+            <button class="example-btn" id="example1">Hidden Library</button>
+            <button class="example-btn" id="example2">Calm Email</button>
+            <button class="example-btn" id="example3">Sad Farewell</button>
+            <button class="example-btn" id="example4">Dramatic Post</button>
         </div>
     </div>
     
@@ -1410,6 +1410,23 @@ def index():
             document.getElementById('samples').value = example[5];
             document.getElementById('samples').dispatchEvent(new Event('input'));
         };
+        
+        // Wire up example buttons
+        document.getElementById('example1').addEventListener('click', () => loadExample(['The hidden library at dawn', 'story', 3, 0.7, [0.3, 0.1, 0, 0.1, 0.3, 0, 0.1, 0.2], 3]));
+        document.getElementById('example2').addEventListener('click', () => loadExample(['A launch email for a calm app', 'email', 3, 0.8, [0.4, 0, 0, 0, 0.5, 0, 0.1, 0], 2]));
+        document.getElementById('example3').addEventListener('click', () => loadExample(['A heartbreaking farewell', 'story', 3, 0.6, [0, 0.9, 0, 0.1, 0, 0, 0, 0], 2]));
+        document.getElementById('example4').addEventListener('click', () => loadExample(['City at night', 'social', 3, 0.5, [0.1, 0.2, 0, 0.2, 0.1, 0, 0.3, 0.1], 3]));
+        
+        // Wire up other buttons
+        document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+        document.getElementById('toggleWheelBtn').addEventListener('click', toggleWheel);
+        document.getElementById('presetHappy').addEventListener('click', () => setEmotionPreset('happy'));
+        document.getElementById('presetSad').addEventListener('click', () => setEmotionPreset('sad'));
+        document.getElementById('presetDramatic').addEventListener('click', () => setEmotionPreset('dramatic'));
+        document.getElementById('presetCalm').addEventListener('click', () => setEmotionPreset('calm'));
+        document.getElementById('presetIntense').addEventListener('click', () => setEmotionPreset('intense'));
+        document.getElementById('analyzeBtn').addEventListener('click', analyzeText);
+        document.getElementById('applyBtn').addEventListener('click', applyAnalyzedEmotions);
     </script>
 </body>
 </html>"""
