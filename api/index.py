@@ -52,6 +52,50 @@ def analyze_text_emotions(text: str, api_key: str) -> dict:
         return None
 
 
+def annotate_text_with_emotions(text: str, api_key: str, language: str = "english") -> dict:
+    """Annotate text with emotion colors for each sentence/phrase using GPT."""
+    if not api_key:
+        return None
+
+    language_instruction = "in English" if language == "english" else "in Hebrew (עברית)"
+    
+    request_data = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {
+                "role": "system",
+                "content": f"You are an emotion analysis expert. Analyze text {language_instruction} and identify the PRIMARY emotion (joy, sadness, anger, fear, trust, disgust, surprise, anticipation) for each sentence or phrase. Return ONLY a JSON array where each item has 'text' (the sentence/phrase) and 'emotion' (one of the 8 emotions).",
+            },
+            {
+                "role": "user",
+                "content": f"Analyze this text {language_instruction} and label each sentence/phrase with its primary emotion:\n\n{text}\n\nReturn format: [{{\"text\": \"sentence here\", \"emotion\": \"joy\"}}, ...]",
+            },
+        ],
+        "temperature": 0.3,
+        "max_tokens": 500,
+    }
+
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/chat/completions",
+        data=json.dumps(request_data).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=25) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            content = payload.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            # Parse JSON response
+            annotations = json.loads(content)
+            return annotations
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
+        return None
+
+
 def get_api_key(user_api_key: str | None) -> str | None:
     # If user_api_key is "FREE_USE", use the shared key for authenticated free users
     if user_api_key == "FREE_USE":
@@ -915,6 +959,7 @@ def index():
         // Analyze text
         async function analyzeText() {
             const text = document.getElementById('analyzeText').value.trim();
+            const language = document.getElementById('language').value;
             let apiKey = document.getElementById('apiKey').value.trim();
             
             if (!text) {
@@ -945,13 +990,13 @@ def index():
                 const response = await fetch('/api/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text, api_key: apiKey })
+                    body: JSON.stringify({ text, api_key: apiKey, language })
                 });
                 
                 const data = await response.json();
                 if (data.ok && data.emotions) {
                     lastAnalyzedEmotions = data.emotions;
-                    displayAnalysisResult(data.emotions);
+                    displayAnalysisResult(data.emotions, data.annotations, text);
                     document.getElementById('applyBtn').style.display = 'inline-block';
                     showStatus('Analysis complete!', 'success');
                 } else {
@@ -966,11 +1011,22 @@ def index():
         }
         
         // Display analysis result
-        function displayAnalysisResult(emotions) {
+        function displayAnalysisResult(emotions, annotations, originalText) {
             const resultDiv = document.getElementById('analyzeResult');
             const sorted = Object.entries(emotions).sort((a, b) => b[1] - a[1]);
             
             let html = '<div style="margin-top: 12px;">';
+            
+            // Show colored text if annotations available
+            if (annotations && annotations.length > 0) {
+                const isRtl = isHebrewText(originalText);
+                const rtlStyle = isRtl ? 'direction: rtl; text-align: right;' : '';
+                html += '<h4 style="color: #a78bfa; font-size: 13px; margin-bottom: 8px;">Emotion-Colored Text:</h4>';
+                html += '<div style="padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 16px; line-height: 1.8; ' + rtlStyle + '">';
+                html += applyEmotionColors(annotations);
+                html += '</div>';
+            }
+            
             html += '<h4 style="color: #a78bfa; font-size: 13px; margin-bottom: 8px;">Detected Emotions:</h4>';
             
             sorted.forEach(([emotion, value]) => {
@@ -1093,41 +1149,27 @@ def index():
             });
         });
         
-        // Highlight text with emotion colors - no regex version
-        function highlightEmotions(text) {
-            // Don't double-process if already has emotion spans
-            if (text.includes('class="emotion-')) {
-                return text;
+        // Apply emotion annotations from API
+        function applyEmotionColors(annotations) {
+            if (!annotations || annotations.length === 0) {
+                return '';
             }
             
-            // Expanded keyword matching for better detection
-            const emotionKeywords = {
-                joy: ['happy', 'happiness', 'joyful', 'delighted', 'cheerful', 'bright', 'wonderful', 'glad', 'pleased', 'smile', 'smiling', 'laugh', 'laughing', 'excited', 'excitement', 'love', 'loving'],
-                sadness: ['sad', 'sadness', 'sorrow', 'sorrowful', 'melancholy', 'tears', 'crying', 'grief', 'lonely', 'loneliness', 'down', 'blue', 'cry', 'weep', 'weeping', 'depressed', 'gloomy'],
-                anger: ['angry', 'anger', 'furious', 'fury', 'rage', 'mad', 'irritated', 'annoyed', 'frustrated', 'frustration', 'hate', 'hatred', 'bitter', 'resentful'],
-                fear: ['afraid', 'fear', 'scared', 'terrified', 'terror', 'anxious', 'anxiety', 'worried', 'worry', 'nervous', 'frightened', 'panic', 'panicked', 'dread'],
-                trust: ['trust', 'trusting', 'believe', 'belief', 'faith', 'confident', 'confidence', 'reliable', 'secure', 'security', 'safe', 'safety', 'depend', 'dependable'],
-                disgust: ['disgusted', 'disgust', 'revolting', 'nasty', 'gross', 'repulsive', 'awful', 'vile', 'horrible', 'terrible'],
-                surprise: ['surprised', 'surprise', 'shocked', 'shock', 'amazed', 'amazing', 'astonished', 'unexpected', 'sudden', 'suddenly', 'startle', 'startled', 'wow'],
-                anticipation: ['anticipate', 'anticipation', 'expect', 'expecting', 'await', 'awaiting', 'hopeful', 'hope', 'eager', 'eagerly', 'soon', 'ready']
+            const emotionColors = {
+                joy: '#fbbf24',
+                sadness: '#60a5fa',
+                anger: '#ef4444',
+                fear: '#a78bfa',
+                trust: '#34d399',
+                disgust: '#84cc16',
+                surprise: '#f59e0b',
+                anticipation: '#ec4899'
             };
             
-            // Split text into words and apply highlighting
-            const words = text.split(' ');
-            const highlightedWords = words.map(word => {
-                // Remove punctuation for matching
-                const cleanWord = word.replace(/[.,!?;:"']/g, '').toLowerCase();
-                
-                // Check each emotion
-                for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
-                    if (keywords.includes(cleanWord)) {
-                        return '<span class="emotion-' + emotion + '">' + word + '</span>';
-                    }
-                }
-                return word;
-            });
-            
-            return highlightedWords.join(' ');
+            return annotations.map(item => {
+                const color = emotionColors[item.emotion] || '#cbd5e1';
+                return '<span style="color: ' + color + '; font-weight: 600;">' + item.text + '</span>';
+            }).join(' ');
         }
         
         // Detect if text contains Hebrew characters
@@ -1346,8 +1388,10 @@ def index():
                     if (results.length === 1) {
                         // Single result - simple display with emotion highlighting
                         const result = results[0];
-                        const highlighted = highlightEmotions(result.draft);
-                        document.getElementById('outputBox').innerHTML = wrapWithRTLIfNeeded(highlighted, result.draft);
+                        const coloredText = result.annotations && result.annotations.length > 0 
+                            ? applyEmotionColors(result.annotations)
+                            : result.draft;
+                        document.getElementById('outputBox').innerHTML = wrapWithRTLIfNeeded(coloredText, result.draft);
                         document.getElementById('emotionInsight').textContent = '💡 ' + summarizeEmotions(normalizeEmotions(result.emotions));
                         document.getElementById('emotionInsight').style.display = 'block';
                         updateCharts(result.emotions);
@@ -1356,7 +1400,9 @@ def index():
                         let html = '';
                         results.forEach((result, idx) => {
                             const wordCount = countWords(result.draft);
-                            const highlighted = highlightEmotions(result.draft);
+                            const coloredText = result.annotations && result.annotations.length > 0 
+                                ? applyEmotionColors(result.annotations)
+                                : result.draft;
                             const rtlClass = isHebrewText(result.draft) ? ' class="rtl-text"' : '';
                             html += `
                                 <div style="margin-bottom: 24px; padding: 16px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; border: 1px solid rgba(167, 139, 250, 0.2);">
@@ -1367,7 +1413,7 @@ def index():
                                             <button onclick="copyToClipboard(\`${result.draft.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`, this)" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">📋 Copy</button>
                                         </div>
                                     </div>
-                                    <div${rtlClass} style="white-space: pre-wrap; line-height: 1.6; color: #cbd5e1; font-size: 14px; margin-bottom: 12px;">${highlighted}</div>
+                                    <div${rtlClass} style="white-space: pre-wrap; line-height: 1.6; font-size: 14px; margin-bottom: 12px;">${coloredText}</div>
                                     <div style="padding: 10px; background: rgba(167, 139, 250, 0.1); border-radius: 6px; font-size: 12px; color: #cbd5e1;">
                                         💡 ${summarizeEmotions(normalizeEmotions(result.emotions))}
                                     </div>
@@ -1481,10 +1527,14 @@ def generate_api():
         
         draft = generate_with_openai(prompt, mode, api_key, creativity=variation_creativity, emotions=varied_emotions, length=length, language=language)
         if draft:
+            # Annotate the draft with emotion colors
+            annotations = annotate_text_with_emotions(draft, api_key, language)
+            
             results.append({
                 "draft": draft,
                 "emotions": varied_emotions,
-                "creativity": variation_creativity
+                "creativity": variation_creativity,
+                "annotations": annotations if annotations else []
             })
         else:
             break  # Stop if generation fails
@@ -1500,11 +1550,12 @@ def generate_api():
 
 @app.route("/api/analyze", methods=["POST"])
 def analyze_api():
-    """Analyze text for emotional content."""
+    """Analyze text for emotional content and provide annotations."""
     payload = request.get_json(silent=True) or {}
     
     text = payload.get("text", "").strip()
     api_key = get_api_key(payload.get("api_key"))
+    language = payload.get("language", "english")
     
     if not text:
         return jsonify({
@@ -1519,6 +1570,7 @@ def analyze_api():
         }), 400
     
     emotions = analyze_text_emotions(text, api_key)
+    annotations = annotate_text_with_emotions(text, api_key, language)
     
     if not emotions:
         return jsonify({
@@ -1529,6 +1581,7 @@ def analyze_api():
     return jsonify({
         "ok": True,
         "emotions": emotions,
+        "annotations": annotations if annotations else [],
         "text": text
     })
 
