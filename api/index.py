@@ -69,7 +69,7 @@ def get_api_key(user_api_key: str | None) -> str | None:
     return None
 
 
-def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity: float = 0.7, emotions: dict = None, length: int = 3) -> str | None:
+def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity: float = 0.7, emotions: dict = None, length: int = 3, language: str = "english") -> str | None:
     if not api_key:
         return None
 
@@ -105,17 +105,22 @@ def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity
     # Adjust max_tokens based on length - increased to prevent cutoff
     max_tokens_map = {2: 200, 3: 350, 4: 500, 5: 700}
     max_tokens = max_tokens_map.get(length, 350)
+    
+    # Language instruction
+    language_instruction = ""
+    if language == "hebrew":
+        language_instruction = " Write the entire response in Hebrew (עברית). Use proper Hebrew grammar and natural Hebrew expressions."
 
     request_data = {
         "model": "gpt-4o-mini",
         "messages": [
             {
                 "role": "system",
-                "content": "You are a creative writing assistant. Write a polished draft matching the requested format, length, and emotional tone.",
+                "content": f"You are a creative writing assistant. Write a polished draft matching the requested format, length, and emotional tone.{language_instruction}",
             },
             {
                 "role": "user",
-                "content": f"Create a {length_instruction} {mode} style draft for this prompt: {prompt}.{emotion_instruction} Keep it vivid, useful, and polished.",
+                "content": f"Create a {length_instruction} {mode} style draft for this prompt: {prompt}.{emotion_instruction} Keep it vivid, useful, and polished.{language_instruction}",
             },
         ],
         "temperature": min(1.0, 0.6 + creativity * 0.25),
@@ -502,6 +507,22 @@ def index():
             color: #60a5fa;
             font-weight: 600;
         }
+        
+        /* Emotion color highlights */
+        .emotion-joy { color: #fbbf24; font-weight: 500; }
+        .emotion-sadness { color: #60a5fa; font-weight: 500; }
+        .emotion-anger { color: #ef4444; font-weight: 500; }
+        .emotion-fear { color: #a78bfa; font-weight: 500; }
+        .emotion-trust { color: #34d399; font-weight: 500; }
+        .emotion-disgust { color: #84cc16; font-weight: 500; }
+        .emotion-surprise { color: #f59e0b; font-weight: 500; }
+        .emotion-anticipation { color: #ec4899; font-weight: 500; }
+        
+        /* RTL support for Hebrew */
+        .rtl-text {
+            direction: rtl;
+            text-align: right;
+        }
     </style>
 </head>
 <body>
@@ -541,6 +562,14 @@ def index():
                     </select>
                 </div>
                 
+                <div class="form-group">
+                    <label>Language</label>
+                    <select id="language">
+                        <option value="english">🇬🇧 English</option>
+                        <option value="hebrew">🇮🇱 עברית (Hebrew)</option>
+                    </select>
+                </div>
+                
                 <div class="controls-row">
                     <div class="form-group">
                         <div class="slider-label">
@@ -568,7 +597,16 @@ def index():
                 </div>
                 
                 <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; margin-top: 20px;">
-                    <h3 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px;">Emotional Tone</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h3 style="color: #a78bfa; font-size: 14px; margin: 0;">Emotional Tone</h3>
+                        <button onclick="toggleWheel()" style="padding: 4px 10px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 11px;">🎭 Wheel View</button>
+                    </div>
+                    
+                    <div id="wheelContainer" style="display: none; margin-bottom: 16px;">
+                        <canvas id="plutchikWheel" width="300" height="300" style="display: block; margin: 0 auto; cursor: crosshair; border-radius: 50%; background: rgba(0,0,0,0.3);"></canvas>
+                        <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 8px;">Click on the wheel to set emotions</p>
+                    </div>
+                    
                     <div class="emotion-grid" id="emotionSliders"></div>
                 </div>
                 
@@ -731,7 +769,19 @@ def index():
             "anticipation": "eager, forward-looking, and exciting"
         };
         
+        const EMOTION_COLORS = {
+            "joy": "#fbbf24",
+            "sadness": "#60a5fa",
+            "anger": "#ef4444",
+            "fear": "#a78bfa",
+            "trust": "#34d399",
+            "disgust": "#84cc16",
+            "surprise": "#f59e0b",
+            "anticipation": "#ec4899"
+        };
+        
         let charts = { bar: null, radar: null };
+        let wheelVisible = false;
         
         // Update slider displays - single event listener setup
         function updateSliderDisplays() {
@@ -786,6 +836,10 @@ def index():
                 // Update display on change
                 document.getElementById(emotion).addEventListener('input', (e) => {
                     document.getElementById(`${emotion}Value`).textContent = (parseFloat(e.target.value) * 100).toFixed(0) + '%';
+                    // Redraw wheel if visible
+                    if (wheelVisible) {
+                        drawPlutchikWheel();
+                    }
                 });
             });
         }
@@ -952,6 +1006,128 @@ def index():
             showStatus('Emotions applied to sliders!', 'success');
         }
         
+        // Toggle Plutchik Wheel
+        function toggleWheel() {
+            wheelVisible = !wheelVisible;
+            document.getElementById('wheelContainer').style.display = wheelVisible ? 'block' : 'none';
+            if (wheelVisible) {
+                drawPlutchikWheel();
+            }
+        }
+        
+        // Draw Plutchik Wheel
+        function drawPlutchikWheel() {
+            const canvas = document.getElementById('plutchikWheel');
+            const ctx = canvas.getContext('2d');
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = 130;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw emotion segments
+            const angleStep = (Math.PI * 2) / EMOTIONS.length;
+            EMOTIONS.forEach((emotion, index) => {
+                const startAngle = angleStep * index - Math.PI / 2;
+                const endAngle = startAngle + angleStep;
+                const value = parseFloat(document.getElementById(emotion).value);
+                
+                // Draw segment
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius * value, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fillStyle = EMOTION_COLORS[emotion] + '99';
+                ctx.fill();
+                ctx.strokeStyle = EMOTION_COLORS[emotion];
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Draw label
+                const labelAngle = startAngle + angleStep / 2;
+                const labelRadius = radius + 20;
+                const labelX = centerX + Math.cos(labelAngle) * labelRadius;
+                const labelY = centerY + Math.sin(labelAngle) * labelRadius;
+                ctx.fillStyle = '#cbd5e1';
+                ctx.font = '11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(emotion, labelX, labelY);
+            });
+            
+            // Draw center circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 10, 0, Math.PI * 2);
+            ctx.fillStyle = '#a78bfa';
+            ctx.fill();
+        }
+        
+        // Wheel click interaction
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('plutchikWheel');
+            canvas.addEventListener('click', (e) => {
+                if (!wheelVisible) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left - canvas.width / 2;
+                const y = e.clientY - rect.top - canvas.height / 2;
+                const angle = Math.atan2(y, x) + Math.PI / 2;
+                const normalizedAngle = (angle + Math.PI * 2) % (Math.PI * 2);
+                const distance = Math.sqrt(x * x + y * y);
+                const maxRadius = 130;
+                
+                // Determine which emotion was clicked
+                const angleStep = (Math.PI * 2) / EMOTIONS.length;
+                const emotionIndex = Math.floor(normalizedAngle / angleStep);
+                const emotion = EMOTIONS[emotionIndex];
+                
+                // Set value based on distance from center
+                const value = Math.min(distance / maxRadius, 1.0);
+                document.getElementById(emotion).value = value;
+                document.getElementById(`${emotion}Value`).textContent = (value * 100).toFixed(0) + '%';
+                
+                drawPlutchikWheel();
+            });
+        });
+        
+        // Highlight text with emotion colors
+        function highlightEmotions(text) {
+            // Simple keyword matching for demonstration
+            const emotionKeywords = {
+                joy: ['happy', 'joyful', 'delighted', 'cheerful', 'bright', 'wonderful', 'glad', 'pleased', 'smile', 'laugh'],
+                sadness: ['sad', 'sorrow', 'melancholy', 'tears', 'grief', 'lonely', 'down', 'blue', 'cry', 'weep'],
+                anger: ['angry', 'furious', 'rage', 'mad', 'irritated', 'annoyed', 'frustrated', 'hate'],
+                fear: ['afraid', 'scared', 'terrified', 'anxious', 'worried', 'nervous', 'frightened', 'panic'],
+                trust: ['trust', 'believe', 'faith', 'confident', 'reliable', 'secure', 'safe', 'depend'],
+                disgust: ['disgusted', 'revolting', 'nasty', 'gross', 'repulsive', 'awful', 'vile'],
+                surprise: ['surprised', 'shocked', 'amazed', 'astonished', 'unexpected', 'sudden', 'startle'],
+                anticipation: ['anticipate', 'expect', 'await', 'hopeful', 'eager', 'excited', 'looking forward', 'soon']
+            };
+            
+            let highlightedText = text;
+            Object.entries(emotionKeywords).forEach(([emotion, keywords]) => {
+                keywords.forEach(keyword => {
+                    const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
+                    highlightedText = highlightedText.replace(regex, `<span class="emotion-${emotion}">$1</span>`);
+                });
+            });
+            
+            return highlightedText;
+        }
+        
+        // Detect if text contains Hebrew characters
+        function isHebrewText(text) {
+            const hebrewRegex = /[\u0590-\u05FF]/;
+            return hebrewRegex.test(text);
+        }
+        
+        // Apply RTL class if needed
+        function wrapWithRTLIfNeeded(html, text) {
+            if (isHebrewText(text)) {
+                return `<div class="rtl-text">${html}</div>`;
+            }
+            return html;
+        }
+        
         // Update charts with error handling
         function updateCharts(emotions) {
             ensureChartLoaded(() => {
@@ -1104,6 +1280,7 @@ def index():
             const length = parseInt(document.getElementById('length').value);
             const variations = parseInt(document.getElementById('samples').value);
             const emotions = getEmotions();
+            const language = document.getElementById('language').value;
             
             if (!prompt) {
                 showStatus('Please enter a prompt', 'error');
@@ -1143,7 +1320,7 @@ def index():
                 const response = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, api_key: apiKey, mode, creativity, length, variations, emotions })
+                    body: JSON.stringify({ prompt, api_key: apiKey, mode, creativity, length, variations, emotions, language })
                 });
                 
                 const data = await response.json();
@@ -1151,9 +1328,10 @@ def index():
                     const results = data.results;
                     
                     if (results.length === 1) {
-                        // Single result - simple display
+                        // Single result - simple display with emotion highlighting
                         const result = results[0];
-                        document.getElementById('outputBox').textContent = result.draft;
+                        const highlighted = highlightEmotions(result.draft);
+                        document.getElementById('outputBox').innerHTML = wrapWithRTLIfNeeded(highlighted, result.draft);
                         document.getElementById('emotionInsight').textContent = '💡 ' + summarizeEmotions(normalizeEmotions(result.emotions));
                         document.getElementById('emotionInsight').style.display = 'block';
                         updateCharts(result.emotions);
@@ -1162,16 +1340,18 @@ def index():
                         let html = '';
                         results.forEach((result, idx) => {
                             const wordCount = countWords(result.draft);
+                            const highlighted = highlightEmotions(result.draft);
+                            const rtlClass = isHebrewText(result.draft) ? ' class="rtl-text"' : '';
                             html += `
                                 <div style="margin-bottom: 24px; padding: 16px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; border: 1px solid rgba(167, 139, 250, 0.2);">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                                         <h3 style="color: #a78bfa; font-size: 16px; margin: 0;">Variation ${idx + 1}</h3>
                                         <div style="display: flex; gap: 8px; align-items: center;">
                                             <span style="font-size: 12px; color: #94a3b8;">${wordCount} words</span>
-                                            <button onclick="copyToClipboard(\`${result.draft.replace(/`/g, '\\`')}\`, this)" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">📋 Copy</button>
+                                            <button onclick="copyToClipboard(\`${result.draft.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`, this)" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">📋 Copy</button>
                                         </div>
                                     </div>
-                                    <div style="white-space: pre-wrap; line-height: 1.6; color: #cbd5e1; font-size: 14px; margin-bottom: 12px;">${result.draft}</div>
+                                    <div${rtlClass} style="white-space: pre-wrap; line-height: 1.6; color: #cbd5e1; font-size: 14px; margin-bottom: 12px;">${highlighted}</div>
                                     <div style="padding: 10px; background: rgba(167, 139, 250, 0.1); border-radius: 6px; font-size: 12px; color: #cbd5e1;">
                                         💡 ${summarizeEmotions(normalizeEmotions(result.emotions))}
                                     </div>
@@ -1235,6 +1415,7 @@ def generate_api():
     creativity = float(payload.get("creativity", 0.7) or 0.7)
     length = int(payload.get("length", 3) or 3)
     variations = int(payload.get("variations", 1) or 1)
+    language = payload.get("language", "english")
     api_key = get_api_key(payload.get("api_key"))
     
     # Get emotions from payload
@@ -1265,7 +1446,7 @@ def generate_api():
         variation_creativity = creativity + (i * 0.05) if i > 0 else creativity
         variation_creativity = min(1.0, variation_creativity)
         
-        draft = generate_with_openai(prompt, mode, api_key, creativity=variation_creativity, emotions=varied_emotions, length=length)
+        draft = generate_with_openai(prompt, mode, api_key, creativity=variation_creativity, emotions=varied_emotions, length=length, language=language)
         if draft:
             results.append({
                 "draft": draft,
