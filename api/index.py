@@ -27,20 +27,40 @@ def get_api_key(user_api_key: str | None) -> str | None:
     return None
 
 
-def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity: float = 0.7) -> str | None:
+def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity: float = 0.7, emotions: dict = None) -> str | None:
     if not api_key:
         return None
+
+    # Build emotion description if provided
+    emotion_instruction = ""
+    if emotions:
+        # Get top 2 emotions
+        sorted_emotions = sorted(emotions.items(), key=lambda x: x[1], reverse=True)
+        top_emotions = [name for name, val in sorted_emotions[:2] if val > 0.1]
+        if top_emotions:
+            emotion_map = {
+                "joy": "joyful, uplifting, and optimistic",
+                "sadness": "melancholic, reflective, and somber",
+                "anger": "intense, forceful, and confrontational",
+                "fear": "tense, anxious, and foreboding",
+                "trust": "reassuring, steady, and confident",
+                "disgust": "critical, skeptical, and sharp",
+                "surprise": "unexpected, striking, and dramatic",
+                "anticipation": "eager, forward-looking, and exciting"
+            }
+            emotion_desc = " and ".join([emotion_map.get(e, e) for e in top_emotions])
+            emotion_instruction = f" The tone should feel {emotion_desc}."
 
     request_data = {
         "model": "gpt-4o-mini",
         "messages": [
             {
                 "role": "system",
-                "content": "You are a creative writing assistant. Write a concise, polished draft matching the requested format and tone.",
+                "content": "You are a creative writing assistant. Write a concise, polished draft matching the requested format and emotional tone.",
             },
             {
                 "role": "user",
-                "content": f"Create a {mode} style draft for this prompt: {prompt}. Keep it vivid, useful, and polished.",
+                "content": f"Create a {mode} style draft for this prompt: {prompt}.{emotion_instruction} Keep it vivid, useful, and polished.",
             },
         ],
         "temperature": min(1.0, 0.6 + creativity * 0.25),
@@ -526,10 +546,10 @@ def index():
         <!-- Examples -->
         <div class="examples card">
             <h3>🧪 Quick Examples</h3>
-            <button class="example-btn" onclick="loadExample(['The hidden library at dawn', 'story', 3, 0.7, [0.1, 0, 0, 0.5, 0.4, 0, 0.1, 0.1], 3])">Hidden Library (Story)</button>
-            <button class="example-btn" onclick="loadExample(['A launch email for a calm new app', 'email', 3, 0.8, [0.2, 0, 0, 0.4, 0, 0.1, 0.2, 0.1], 2])">Launch Email</button>
-            <button class="example-btn" onclick="loadExample(['A product pitch for a smart notebook', 'pitch', 3, 0.7, [0, 0, 0, 0.3, 0, 0.2, 0.2, 0.1], 2])">Product Pitch</button>
-            <button class="example-btn" onclick="loadExample(['A dramatic post about a city at night', 'social', 3, 0.5, [0.2, 0.1, 0.3, 0.1, 0, 0.3, 0.1, 0], 3])">Dramatic City Post</button>
+            <button class="example-btn" onclick="loadExample(['The hidden library at dawn', 'story', 3, 0.7, [0.3, 0.1, 0, 0.6], 3])">Hidden Library (Story)</button>
+            <button class="example-btn" onclick="loadExample(['A launch email for a calm new app', 'email', 3, 0.8, [0.4, 0, 0, 0.6], 2])">Launch Email</button>
+            <button class="example-btn" onclick="loadExample(['A heartbreaking farewell letter', 'email', 3, 0.6, [0, 0.9, 0.1, 0], 2])">Sad Farewell</button>
+            <button class="example-btn" onclick="loadExample(['A dramatic post about a city at night', 'social', 3, 0.5, [0.2, 0.3, 0.2, 0.3], 3])">Dramatic City Post</button>
         </div>
     </div>
     
@@ -614,16 +634,12 @@ def index():
             document.getElementById('googleSignInButton').style.display = 'block';
         }
         
-        const EMOTIONS = ["joy", "sadness", "anger", "fear", "trust", "disgust", "surprise", "anticipation"];
+        const EMOTIONS = ["joy", "sadness", "anger", "trust"];
         const EMOTION_LABELS = {
-            "joy": "bright and uplifting",
-            "sadness": "reflective and tender",
-            "anger": "firm and forceful",
-            "fear": "tense and shadowed",
-            "trust": "steady and reassuring",
-            "disgust": "sharp and skeptical",
-            "surprise": "electric and unexpected",
-            "anticipation": "eager and forward-looking"
+            "joy": "joyful, uplifting, and optimistic",
+            "sadness": "melancholic, reflective, and somber",
+            "anger": "intense, forceful, and confrontational",
+            "trust": "reassuring, steady, and confident"
         };
         
         let charts = { bar: null, radar: null };
@@ -649,8 +665,10 @@ def index():
         function initializeEmotions() {
             const container = document.getElementById('emotionSliders');
             const emotionValues = {
-                joy: 0.3, sadness: 0, anger: 0, fear: 0,
-                trust: 0.3, disgust: 0, surprise: 0.2, anticipation: 0.2
+                joy: 0.5,
+                sadness: 0,
+                anger: 0,
+                trust: 0.5
             };
             
             EMOTIONS.forEach(emotion => {
@@ -658,8 +676,8 @@ def index():
                 div.className = 'form-group';
                 div.innerHTML = `
                     <div class="slider-label">
-                        <label style="font-size: 12px;">${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</label>
-                        <span class="slider-value" id="${emotion}Value">${emotionValues[emotion].toFixed(2)}</span>
+                        <label style="font-size: 13px; font-weight: 500;">${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</label>
+                        <span class="slider-value" id="${emotion}Value">${(emotionValues[emotion] * 100).toFixed(0)}%</span>
                     </div>
                     <input type="range" id="${emotion}" min="0" max="1" value="${emotionValues[emotion]}" step="0.05">
                 `;
@@ -667,7 +685,7 @@ def index():
                 
                 // Update display on change
                 document.getElementById(emotion).addEventListener('input', (e) => {
-                    document.getElementById(`${emotion}Value`).textContent = parseFloat(e.target.value).toFixed(2);
+                    document.getElementById(`${emotion}Value`).textContent = (parseFloat(e.target.value) * 100).toFixed(0) + '%';
                 });
             });
         }
@@ -813,8 +831,9 @@ def index():
             document.getElementById('samples').value = samples;
             
             EMOTIONS.forEach((emotion, idx) => {
-                document.getElementById(emotion).value = emotions[idx];
-                document.getElementById(`${emotion}Value`).textContent = emotions[idx].toFixed(2);
+                const value = emotions[idx] || 0;
+                document.getElementById(emotion).value = value;
+                document.getElementById(`${emotion}Value`).textContent = (value * 100).toFixed(0) + '%';
             });
             
             updateSliderDisplays();
@@ -865,7 +884,7 @@ def index():
                 const response = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, api_key: apiKey, mode, creativity })
+                    body: JSON.stringify({ prompt, api_key: apiKey, mode, creativity, emotions })
                 });
                 
                 const data = await response.json();
@@ -935,6 +954,11 @@ def generate_api():
     mode = payload.get("mode", "story")
     creativity = float(payload.get("creativity", 0.7) or 0.7)
     api_key = get_api_key(payload.get("api_key"))
+    
+    # Get emotions from payload
+    emotions = payload.get("emotions", {})
+    if isinstance(emotions, str):
+        emotions = json.loads(emotions)
 
     if not api_key:
         return jsonify({
@@ -942,7 +966,7 @@ def generate_api():
             "message": "No API key was provided. Set OPENAI_API_KEY in Vercel or paste a key into the form.",
         }), 400
 
-    draft = generate_with_openai(prompt, mode, api_key, creativity=creativity)
+    draft = generate_with_openai(prompt, mode, api_key, creativity=creativity, emotions=emotions)
     if not draft:
         return jsonify({
             "ok": False,

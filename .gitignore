@@ -55,3 +55,4 @@ secrets/
 # Project specific
 *.png.backup
 readme.txt
+.env*
