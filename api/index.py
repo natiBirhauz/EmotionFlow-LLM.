@@ -102,9 +102,9 @@ def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity
     }
     length_instruction = length_map.get(length, "moderate length")
     
-    # Adjust max_tokens based on length - increased to prevent cutoff
-    max_tokens_map = {2: 200, 3: 350, 4: 500, 5: 700}
-    max_tokens = max_tokens_map.get(length, 350)
+    # Adjust max_tokens based on length - reduced to prevent cutoff
+    max_tokens_map = {2: 150, 3: 250, 4: 350, 5: 500}
+    max_tokens = max_tokens_map.get(length, 250)
     
     # Language instruction
     language_instruction = ""
@@ -540,6 +540,15 @@ def index():
             <p>Turn a simple prompt into a polished draft with emotional controls</p>
         </div>
         
+        <!-- Quick Examples at top -->
+        <div class="examples card" style="margin-bottom: 30px;">
+            <h3>🧪 Quick Examples</h3>
+            <button class="example-btn" onclick="loadExample(['The hidden library at dawn', 'story', 3, 0.7, [0.3, 0.1, 0, 0.1, 0.3, 0, 0.1, 0.2], 3])">Hidden Library</button>
+            <button class="example-btn" onclick="loadExample(['A launch email for a calm app', 'email', 3, 0.8, [0.4, 0, 0, 0, 0.5, 0, 0.1, 0], 2])">Calm Email</button>
+            <button class="example-btn" onclick="loadExample(['A heartbreaking farewell', 'story', 3, 0.6, [0, 0.9, 0, 0.1, 0, 0, 0, 0], 2])">Sad Farewell</button>
+            <button class="example-btn" onclick="loadExample(['City at night', 'social', 3, 0.5, [0.1, 0.2, 0, 0.2, 0.1, 0, 0.3, 0.1], 3])">Dramatic Post</button>
+        </div>
+        
         <div class="main-grid">
             <!-- Input Controls -->
             <div class="card">
@@ -664,15 +673,6 @@ def index():
             <div class="chart-wrapper">
                 <canvas id="radarChart"></canvas>
             </div>
-        </div>
-        
-        <!-- Examples -->
-        <div class="examples card">
-            <h3>🧪 Quick Examples</h3>
-            <button class="example-btn" onclick="loadExample(['The hidden library at dawn', 'story', 3, 0.7, [0.3, 0.1, 0, 0.1, 0.3, 0, 0.1, 0.2], 3])">Hidden Library</button>
-            <button class="example-btn" onclick="loadExample(['A launch email for a calm app', 'email', 3, 0.8, [0.4, 0, 0, 0, 0.5, 0, 0.1, 0], 2])">Calm Email</button>
-            <button class="example-btn" onclick="loadExample(['A heartbreaking farewell', 'story', 3, 0.6, [0, 0.9, 0, 0.1, 0, 0, 0, 0], 2])">Sad Farewell</button>
-            <button class="example-btn" onclick="loadExample(['City at night', 'social', 3, 0.5, [0.1, 0.2, 0, 0.2, 0.1, 0, 0.3, 0.1], 3])">Dramatic Post</button>
         </div>
     </div>
     
@@ -1109,7 +1109,7 @@ def index():
                 trust: ['trust', 'trusting', 'believe', 'belief', 'faith', 'confident', 'confidence', 'reliable', 'secure', 'security', 'safe', 'safety', 'depend', 'dependable'],
                 disgust: ['disgusted', 'disgust', 'revolting', 'nasty', 'gross', 'repulsive', 'awful', 'vile', 'horrible', 'terrible'],
                 surprise: ['surprised', 'surprise', 'shocked', 'shock', 'amazed', 'amazing', 'astonished', 'unexpected', 'sudden', 'suddenly', 'startle', 'startled', 'wow'],
-                anticipation: ['anticipate', 'anticipation', 'expect', 'expecting', 'await', 'awaiting', 'hopeful', 'hope', 'eager', 'eagerly', 'excited', 'looking forward', 'soon', 'ready']
+                anticipation: ['anticipate', 'anticipation', 'expect', 'expecting', 'await', 'awaiting', 'hopeful', 'hope', 'eager', 'eagerly', 'soon', 'ready']
             };
             
             // Apply highlighting directly without escaping (output is from trusted API)
@@ -1123,7 +1123,6 @@ def index():
                 });
             });
             
-            console.log('Highlighting applied:', highlightedText.substring(0, 200));  // Debug log
             return highlightedText;
         }
         
