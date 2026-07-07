@@ -1073,8 +1073,10 @@ def index():
                 const rtlStyle = isRtl ? 'direction: rtl; text-align: right;' : '';
                 html += '<h4 style="color: #a78bfa; font-size: 13px; margin-bottom: 8px;">Emotion-Colored Text:</h4>';
                 html += '<div style="padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 16px; line-height: 1.8; ' + rtlStyle + '">';
-                html += applyEmotionColors(annotations);
+                html += applyEmotionColors(annotations, originalText);
                 html += '</div>';
+            } else {
+                console.log('No annotations received for analyzer');
             }
             
             html += '<h4 style="color: #a78bfa; font-size: 13px; margin-bottom: 8px;">Detected Emotions:</h4>';
@@ -1149,9 +1151,9 @@ def index():
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 
-                // Draw label - positioned with plenty of space
+                // Draw label - positioned closer to avoid cutoff
                 const labelAngle = startAngle + angleStep / 2;
-                const labelRadius = radius + 65;  // Increased spacing
+                const labelRadius = radius + 45;  // Reduced from 65 to 45
                 const labelX = centerX + Math.cos(labelAngle) * labelRadius;
                 const labelY = centerY + Math.sin(labelAngle) * labelRadius;
                 
@@ -1199,10 +1201,12 @@ def index():
             });
         });
         
-        // Apply emotion annotations from API
-        function applyEmotionColors(annotations) {
+        // Apply emotion annotations from API with fallback
+        function applyEmotionColors(annotations, originalText) {
             if (!annotations || annotations.length === 0) {
-                return '';
+                // Fallback: return original text without coloring
+                console.log('No annotations, using original text');
+                return originalText || '';
             }
             
             const emotionColors = {
@@ -1215,6 +1219,8 @@ def index():
                 surprise: '#f59e0b',
                 anticipation: '#ec4899'
             };
+            
+            console.log('Applying colors to annotations:', annotations.length, 'items');
             
             // Join with space and preserve line breaks
             return annotations.map(item => {
@@ -1442,8 +1448,9 @@ def index():
                     if (results.length === 1) {
                         // Single result - simple display with emotion highlighting
                         const result = results[0];
+                        console.log('Single result annotations:', result.annotations);
                         const coloredText = result.annotations && result.annotations.length > 0 
-                            ? applyEmotionColors(result.annotations)
+                            ? applyEmotionColors(result.annotations, result.draft)
                             : result.draft;
                         const isHebrew = isHebrewText(result.draft);
                         document.getElementById('outputBox').innerHTML = wrapWithRTLIfNeeded(coloredText, result.draft);
@@ -1455,8 +1462,9 @@ def index():
                         let html = '';
                         results.forEach((result, idx) => {
                             const wordCount = countWords(result.draft);
+                            console.log('Variation', idx, 'annotations:', result.annotations);
                             const coloredText = result.annotations && result.annotations.length > 0 
-                                ? applyEmotionColors(result.annotations)
+                                ? applyEmotionColors(result.annotations, result.draft)
                                 : result.draft;
                             const isHebrew = isHebrewText(result.draft);
                             const rtlClass = isHebrew ? ' class="rtl-text"' : '';
