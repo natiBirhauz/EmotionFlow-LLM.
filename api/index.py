@@ -64,7 +64,7 @@ def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity
             },
         ],
         "temperature": min(1.0, 0.6 + creativity * 0.25),
-        "max_tokens": 220,
+        "max_tokens": 350,
     }
 
     req = urllib.request.Request(
@@ -730,8 +730,8 @@ def index():
         function updateCharts(emotions) {
             ensureChartLoaded(() => {
                 try {
-                    const normalized = normalizeEmotions(emotions);
-                    const ordered = Object.entries(normalized).sort((a, b) => b[1] - a[1]);
+                    // Use raw values for display, not normalized
+                    const ordered = Object.entries(emotions).sort((a, b) => b[1] - a[1]);
                     const labels = ordered.map(([name, _]) => name.charAt(0).toUpperCase() + name.slice(1));
                     const values = ordered.map(([_, val]) => val);
                     const colors = ["#7c3aed", "#2563eb", "#f97316", "#dc2626", "#14b8a6", "#84cc16", "#f43f5e", "#eab308"];
@@ -744,7 +744,7 @@ def index():
                         data: {
                             labels: labels,
                             datasets: [{
-                                label: 'Emotion Balance',
+                                label: 'Emotion Intensity',
                                 data: values,
                                 backgroundColor: colors.slice(0, labels.length),
                                 borderRadius: 6
@@ -756,12 +756,24 @@ def index():
                             indexAxis: 'y',
                             plugins: { 
                                 legend: { display: false },
-                                tooltip: { enabled: true }
+                                tooltip: { 
+                                    enabled: true,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return (context.parsed.x * 100).toFixed(0) + '%';
+                                        }
+                                    }
+                                }
                             },
                             scales: { 
                                 x: { 
                                     max: 1,
-                                    ticks: { color: '#cbd5e1' },
+                                    ticks: { 
+                                        color: '#cbd5e1',
+                                        callback: function(value) {
+                                            return (value * 100).toFixed(0) + '%';
+                                        }
+                                    },
                                     grid: { color: 'rgba(255,255,255,0.1)' }
                                 },
                                 y: {
@@ -772,16 +784,16 @@ def index():
                         }
                     });
                     
-                    // Radar chart
+                    // Radar chart - use raw values
                     if (charts.radar) charts.radar.destroy();
                     const radarCtx = document.getElementById('radarChart').getContext('2d');
-                    const radarValues = EMOTIONS.map(e => normalized[e] || 0);
+                    const radarValues = EMOTIONS.map(e => emotions[e] || 0);
                     charts.radar = new Chart(radarCtx, {
                         type: 'radar',
                         data: {
                             labels: EMOTIONS.map(e => e.charAt(0).toUpperCase() + e.slice(1)),
                             datasets: [{
-                                label: 'Emotion Radar',
+                                label: 'Emotion Profile',
                                 data: radarValues,
                                 borderColor: '#a78bfa',
                                 backgroundColor: 'rgba(167, 139, 250, 0.2)',
@@ -798,7 +810,14 @@ def index():
                             maintainAspectRatio: true,
                             plugins: { 
                                 legend: { display: false },
-                                tooltip: { enabled: true }
+                                tooltip: { 
+                                    enabled: true,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return (context.parsed.r * 100).toFixed(0) + '%';
+                                        }
+                                    }
+                                }
                             },
                             scales: {
                                 r: {
@@ -806,7 +825,10 @@ def index():
                                     max: 1,
                                     ticks: { 
                                         color: '#cbd5e1',
-                                        backdropColor: 'transparent'
+                                        backdropColor: 'transparent',
+                                        callback: function(value) {
+                                            return (value * 100).toFixed(0) + '%';
+                                        }
                                     },
                                     grid: { color: 'rgba(255,255,255,0.1)' },
                                     pointLabels: { color: '#cbd5e1' }
