@@ -727,9 +727,8 @@ def index():
                     <textarea id="analyzeText" placeholder="Paste or type text here to analyze its emotions..." style="width: 100%; min-height: 120px; padding: 12px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #e2e8f0; font-family: inherit; font-size: 14px; resize: vertical;"></textarea>
                 </div>
                 
-                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                    <button id="analyzeBtn" style="flex: 1; padding: 12px 16px; background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s;">Analyze Emotions</button>
-                    <button id="applyBtn" style="flex: 1; padding: 12px 16px; background: rgba(52, 211, 153, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 8px; color: #86efac; cursor: pointer; font-size: 14px; font-weight: 600; display: none; transition: all 0.3s;">Apply to Sliders</button>
+                <div style="margin-bottom: 16px;">
+                    <button id="analyzeBtn" style="width: 100%; padding: 12px 16px; background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s;">Analyze Emotions</button>
                 </div>
                 
                 <div id="analyzeResult"></div>
@@ -1017,7 +1016,7 @@ def index():
             });
         }
         
-        // Store analyzed emotions
+        // Store analyzed emotions (for future use if needed)
         let lastAnalyzedEmotions = null;
         
         // Analyze text
@@ -1061,7 +1060,6 @@ def index():
                 if (data.ok && data.emotions) {
                     lastAnalyzedEmotions = data.emotions;
                     displayAnalysisResult(data.emotions, data.annotations, text);
-                    document.getElementById('applyBtn').style.display = 'inline-block';
                     showStatus('Analysis complete!', 'success');
                 } else {
                     showStatus(data.message || 'Analysis failed', 'error');
@@ -1606,7 +1604,6 @@ def index():
         document.getElementById('presetCalm').addEventListener('click', () => setEmotionPreset('calm'));
         document.getElementById('presetIntense').addEventListener('click', () => setEmotionPreset('intense'));
         document.getElementById('analyzeBtn').addEventListener('click', analyzeText);
-        document.getElementById('applyBtn').addEventListener('click', applyAnalyzedEmotions);
     </script>
 </body>
 </html>"""
