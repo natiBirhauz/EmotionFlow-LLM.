@@ -18,6 +18,33 @@ EmotionFlow-LLM is an experimental transformer-style language model that blends 
 
 ---
 
+## 🌐 Live Deployment
+
+**The API is now live on Vercel:** https://emotion-flow-llm-six.vercel.app/
+
+### Use the API
+
+**Generate text with your OpenAI API key:**
+```bash
+curl -X POST https://emotion-flow-llm-six.vercel.app/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "A hidden garden at midnight",
+    "api_key": "sk-your-key-here",
+    "mode": "story",
+    "creativity": 0.7
+  }'
+```
+
+**Check API health:**
+```bash
+curl https://emotion-flow-llm-six.vercel.app/health
+```
+
+Supported modes: `story`, `email`, `pitch`, `social`
+
+---
+
 ## 🚀 Quick start
 
 ### 1) Install dependencies
@@ -48,18 +75,26 @@ Then open http://localhost:7860
 python emotionflow_llm.py
 ```
 
-### 4) Optional: deploy to Vercel
+### 4) Deploy to Vercel (already live!)
 
-Set an environment variable named OPENAI_API_KEY in Vercel, then deploy the project. The repository includes a Vercel configuration at [vercel.json](vercel.json) and an API endpoint at [api/generate.py](api/generate.py).
+The project is already deployed and running at https://emotion-flow-llm-six.vercel.app/
+
+To deploy your own instance:
+1. Fork this repository
+2. Create a Vercel project connected to your GitHub repo
+3. Set environment variable `OPENAI_API_KEY` in Vercel settings
+4. Deploy!
+
+The repository includes a Vercel configuration at [vercel.json](vercel.json).
 
 ---
 
 ## 🧠 Project structure
 
-- [app.py](app.py) — the redesigned web studio
+- [app.py](app.py) — the redesigned web studio (Gradio)
 - [emotionflow_llm/](emotionflow_llm/) — core model modules
 - [tests/](tests/) — regression tests for the model and app generation flow
-- [api/generate.py](api/generate.py) — Vercel-compatible API endpoint
+- [api/index.py](api/index.py) — Vercel-compatible Flask API endpoint
 - [vercel.json](vercel.json) — Vercel deployment config
 
 ---
