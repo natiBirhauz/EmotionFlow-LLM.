@@ -1093,7 +1093,7 @@ def index():
             });
         });
         
-        // Highlight text with emotion colors
+        // Highlight text with emotion colors - no regex version
         function highlightEmotions(text) {
             // Don't double-process if already has emotion spans
             if (text.includes('class="emotion-')) {
@@ -1112,18 +1112,22 @@ def index():
                 anticipation: ['anticipate', 'anticipation', 'expect', 'expecting', 'await', 'awaiting', 'hopeful', 'hope', 'eager', 'eagerly', 'soon', 'ready']
             };
             
-            // Apply highlighting directly without escaping (output is from trusted API)
-            let highlightedText = text;
-            Object.entries(emotionKeywords).forEach(([emotion, keywords]) => {
-                keywords.forEach(keyword => {
-                    // Escape special regex characters in keyword
-                    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&');
-                    const regex = new RegExp('\\\\b(' + escapedKeyword + ')\\\\b', 'gi');
-                    highlightedText = highlightedText.replace(regex, '<span class="emotion-' + emotion + '">$1</span>');
-                });
+            // Split text into words and apply highlighting
+            const words = text.split(' ');
+            const highlightedWords = words.map(word => {
+                // Remove punctuation for matching
+                const cleanWord = word.replace(/[.,!?;:"']/g, '').toLowerCase();
+                
+                // Check each emotion
+                for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
+                    if (keywords.includes(cleanWord)) {
+                        return '<span class="emotion-' + emotion + '">' + word + '</span>';
+                    }
+                }
+                return word;
             });
             
-            return highlightedText;
+            return highlightedWords.join(' ');
         }
         
         // Detect if text contains Hebrew characters
