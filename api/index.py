@@ -58,13 +58,12 @@ def annotate_text_with_emotions(text: str, api_key: str, language: str = "englis
         return None
 
     if language == "hebrew":
-        language_instruction = "in Hebrew (עברית)"
-        system_msg = "אתה מומחה לניתוח רגשות. נתח טקסט בעברית וזהה את הרגש העיקרי (שמחה, עצב, כעס, פחד, אמון, גועל, הפתעה, ציפייה) לכל משפט או ביטוי. החזר רק מערך JSON שבו כל פריט כולל 'text' (המשפט/ביטוי) ו-'emotion' (אחד מ-8 הרגשות באנגלית)."
-        user_msg = f"נתח את הטקסט הזה בעברית ותייג כל משפט/ביטוי עם הרגש העיקרי שלו:\n\n{text}\n\nפורמט החזרה: [{{\"text\": \"משפט כאן\", \"emotion\": \"joy\"}}, ...]"
+        # Simplified Hebrew instructions
+        system_msg = "You are an emotion expert. Analyze Hebrew text and label each sentence with one emotion: joy, sadness, anger, fear, trust, disgust, surprise, or anticipation. Return ONLY valid JSON array."
+        user_msg = f"Label each sentence in this Hebrew text with its emotion:\n\n{text}\n\nReturn JSON: [{{\"text\": \"המשפט\", \"emotion\": \"joy\"}}, ...]"
     else:
-        language_instruction = "in English"
-        system_msg = "You are an emotion analysis expert. Analyze text in English and identify the PRIMARY emotion (joy, sadness, anger, fear, trust, disgust, surprise, anticipation) for each sentence or phrase. Return ONLY a JSON array where each item has 'text' (the sentence/phrase) and 'emotion' (one of the 8 emotions)."
-        user_msg = f"Analyze this text in English and label each sentence/phrase with its primary emotion:\n\n{text}\n\nReturn format: [{{\"text\": \"sentence here\", \"emotion\": \"joy\"}}, ...]"
+        system_msg = "You are an emotion expert. Analyze English text and label each sentence with one emotion: joy, sadness, anger, fear, trust, disgust, surprise, or anticipation. Return ONLY valid JSON array."
+        user_msg = f"Label each sentence with its emotion:\n\n{text}\n\nReturn JSON: [{{\"text\": \"sentence\", \"emotion\": \"joy\"}}, ...]"
     
     request_data = {
         "model": "gpt-4o-mini",
@@ -78,8 +77,8 @@ def annotate_text_with_emotions(text: str, api_key: str, language: str = "englis
                 "content": user_msg,
             },
         ],
-        "temperature": 0.3,
-        "max_tokens": 500,
+        "temperature": 0.2,
+        "max_tokens": 800,  # Increased from 500
     }
 
     req = urllib.request.Request(
@@ -93,13 +92,21 @@ def annotate_text_with_emotions(text: str, api_key: str, language: str = "englis
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=25) as response:
+        with urllib.request.urlopen(req, timeout=40) as response:  # Increased timeout
             payload = json.loads(response.read().decode("utf-8"))
             content = payload.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            
+            # Try to extract JSON if it's wrapped in markdown code blocks
+            if content.startswith("```"):
+                content = content.split("```")[1]
+                if content.startswith("json"):
+                    content = content[4:].strip()
+            
             # Parse JSON response
             annotations = json.loads(content)
-            return annotations
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
+            return annotations if isinstance(annotations, list) else None
+    except Exception as e:
+        print(f"Annotation error: {e}")
         return None
 
 
@@ -1604,6 +1611,7 @@ def generate_api():
         if draft:
             # Annotate the draft with emotion colors
             annotations = annotate_text_with_emotions(draft, api_key, language)
+            print(f"Generation {i} - Language: {language}, Draft length: {len(draft)}, Annotations: {annotations is not None}")
             
             results.append({
                 "draft": draft,
@@ -1646,6 +1654,8 @@ def analyze_api():
     
     emotions = analyze_text_emotions(text, api_key)
     annotations = annotate_text_with_emotions(text, api_key, language)
+    
+    print(f"Analyze API - Language: {language}, Annotations: {annotations is not None}")
     
     if not emotions:
         return jsonify({
