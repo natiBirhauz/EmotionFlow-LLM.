@@ -942,10 +942,6 @@ def index():
             document.getElementById('samples').value = example[5];
             document.getElementById('samples').dispatchEvent(new Event('input'));
         };
-        
-        // Initialize
-        initializeEmotions();
-        updateCharts(getEmotions());
     </script>
 </body>
 </html>"""
