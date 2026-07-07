@@ -535,14 +535,26 @@ def index():
                     <input type="password" id="apiKey" placeholder="sk-... (leave blank for local generation)">
                 </div>
                 
+                <div style="margin-top: 16px;">
+                    <label style="margin-bottom: 8px; display: block;">Quick Emotion Presets</label>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button onclick="setEmotionPreset('happy')" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">😊 Happy</button>
+                        <button onclick="setEmotionPreset('sad')" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">😢 Sad</button>
+                        <button onclick="setEmotionPreset('dramatic')" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">🎭 Dramatic</button>
+                        <button onclick="setEmotionPreset('calm')" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">🧘 Calm</button>
+                        <button onclick="setEmotionPreset('intense')" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">⚡ Intense</button>
+                    </div>
+                </div>
+                
                 <button class="btn-generate" id="generateBtn">Generate Draft</button>
             </div>
             
             <!-- Output -->
             <div class="card">
                 <h2>📝 Output</h2>
+                <div id="variationsContainer"></div>
                 <div class="output-text" id="outputBox">Your polished draft will appear here...</div>
-                <div id="emotionInsight" style="margin-top: 16px; padding: 12px; background: rgba(167, 139, 250, 0.1); border-radius: 8px; color: #cbd5e1; font-size: 13px; border: 1px solid rgba(167, 139, 250, 0.2);"></div>
+                <div id="emotionInsight" style="margin-top: 16px; padding: 12px; background: rgba(167, 139, 250, 0.1); border-radius: 8px; color: #cbd5e1; font-size: 13px; border: 1px solid rgba(167, 139, 250, 0.2); display: none;"></div>
             </div>
         </div>
         
@@ -746,6 +758,43 @@ def index():
             return `The draft leans ${EMOTION_LABELS[dominant]} with ${strength}% intensity. Secondary notes include ${supportText}.`;
         }
         
+        // Emotion presets
+        function setEmotionPreset(preset) {
+            const presets = {
+                happy: { joy: 0.8, sadness: 0, anger: 0, fear: 0, trust: 0.5, disgust: 0, surprise: 0.2, anticipation: 0.3 },
+                sad: { joy: 0, sadness: 0.9, anger: 0, fear: 0.2, trust: 0.1, disgust: 0, surprise: 0, anticipation: 0 },
+                dramatic: { joy: 0.1, sadness: 0.3, anger: 0.2, fear: 0.3, trust: 0, disgust: 0.1, surprise: 0.4, anticipation: 0.2 },
+                calm: { joy: 0.3, sadness: 0, anger: 0, fear: 0, trust: 0.7, disgust: 0, surprise: 0, anticipation: 0.1 },
+                intense: { joy: 0.1, sadness: 0.1, anger: 0.6, fear: 0.3, trust: 0, disgust: 0.2, surprise: 0.3, anticipation: 0.5 }
+            };
+            
+            const values = presets[preset];
+            if (values) {
+                EMOTIONS.forEach(emotion => {
+                    document.getElementById(emotion).value = values[emotion];
+                    document.getElementById(`${emotion}Value`).textContent = (values[emotion] * 100).toFixed(0) + '%';
+                });
+            }
+        }
+        
+        // Count words
+        function countWords(text) {
+            return text.trim().split(/\s+/).length;
+        }
+        
+        // Copy to clipboard
+        function copyToClipboard(text, btnElement) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = btnElement.textContent;
+                btnElement.textContent = '✓ Copied!';
+                btnElement.style.background = 'rgba(52, 211, 153, 0.2)';
+                setTimeout(() => {
+                    btnElement.textContent = originalText;
+                    btnElement.style.background = '';
+                }, 2000);
+            });
+        }
+        
         // Update charts with error handling
         function updateCharts(emotions) {
             ensureChartLoaded(() => {
@@ -941,18 +990,54 @@ def index():
                 });
                 
                 const data = await response.json();
-                if (data.ok) {
-                    document.getElementById('outputBox').textContent = data.draft;
-                    document.getElementById('emotionInsight').textContent = '💡 ' + summarizeEmotions(normalizeEmotions(emotions));
-                    updateCharts(emotions);
+                if (data.ok && data.results) {
+                    const results = data.results;
+                    
+                    if (results.length === 1) {
+                        // Single result - simple display
+                        const result = results[0];
+                        document.getElementById('outputBox').textContent = result.draft;
+                        document.getElementById('emotionInsight').textContent = '💡 ' + summarizeEmotions(normalizeEmotions(result.emotions));
+                        document.getElementById('emotionInsight').style.display = 'block';
+                        updateCharts(result.emotions);
+                    } else {
+                        // Multiple results - create variation cards
+                        let html = '';
+                        results.forEach((result, idx) => {
+                            const wordCount = countWords(result.draft);
+                            html += `
+                                <div style="margin-bottom: 24px; padding: 16px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; border: 1px solid rgba(167, 139, 250, 0.2);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                        <h3 style="color: #a78bfa; font-size: 16px; margin: 0;">Variation ${idx + 1}</h3>
+                                        <div style="display: flex; gap: 8px; align-items: center;">
+                                            <span style="font-size: 12px; color: #94a3b8;">${wordCount} words</span>
+                                            <button onclick="copyToClipboard(\`${result.draft.replace(/`/g, '\\`')}\`, this)" style="padding: 6px 12px; background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 6px; color: #cbd5e1; cursor: pointer; font-size: 12px;">📋 Copy</button>
+                                        </div>
+                                    </div>
+                                    <div style="white-space: pre-wrap; line-height: 1.6; color: #cbd5e1; font-size: 14px; margin-bottom: 12px;">${result.draft}</div>
+                                    <div style="padding: 10px; background: rgba(167, 139, 250, 0.1); border-radius: 6px; font-size: 12px; color: #cbd5e1;">
+                                        💡 ${summarizeEmotions(normalizeEmotions(result.emotions))}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        document.getElementById('outputBox').innerHTML = html;
+                        document.getElementById('emotionInsight').style.display = 'none';
+                        // Update charts with first variation's emotions
+                        updateCharts(results[0].emotions);
+                    }
+                    
                     showStatus('Generated successfully!', 'success');
                 } else {
                     showStatus(data.message || 'Generation failed', 'error');
                     document.getElementById('outputBox').textContent = 'Generation failed. Please try again.';
+                    document.getElementById('emotionInsight').style.display = 'none';
                 }
             } catch (error) {
                 showStatus(`Error: ${error.message}`, 'error');
                 document.getElementById('outputBox').textContent = 'Network error. Please check your connection.';
+                document.getElementById('emotionInsight').style.display = 'none';
             } finally {
                 btn.disabled = false;
             }
@@ -1007,31 +1092,39 @@ def generate_api():
         }), 400
 
     # Generate multiple variations if requested
-    drafts = []
+    results = []
     for i in range(min(variations, 4)):  # Max 4 variations
-        # Add slight variation to creativity for different results
+        # Add slight variation to emotions for different results
+        if i > 0:
+            varied_emotions = {}
+            for emotion, value in emotions.items():
+                # Add ±5% random variation to each emotion
+                variation = (hash(f"{prompt}{i}") % 11 - 5) / 100  # Deterministic but varied
+                varied_emotions[emotion] = max(0.0, min(1.0, value + variation))
+        else:
+            varied_emotions = emotions
+            
+        # Add slight variation to creativity
         variation_creativity = creativity + (i * 0.05) if i > 0 else creativity
         variation_creativity = min(1.0, variation_creativity)
         
-        draft = generate_with_openai(prompt, mode, api_key, creativity=variation_creativity, emotions=emotions, length=length)
+        draft = generate_with_openai(prompt, mode, api_key, creativity=variation_creativity, emotions=varied_emotions, length=length)
         if draft:
-            drafts.append(draft)
+            results.append({
+                "draft": draft,
+                "emotions": varied_emotions,
+                "creativity": variation_creativity
+            })
         else:
             break  # Stop if generation fails
     
-    if not drafts:
+    if not results:
         return jsonify({
             "ok": False,
             "message": "The key could not be used right now. Please check the key or try again.",
         }), 400
 
-    # Format multiple drafts
-    if len(drafts) == 1:
-        final_draft = drafts[0]
-    else:
-        final_draft = "\n\n".join([f"**Variation {i+1}:**\n{draft}" for i, draft in enumerate(drafts)])
-
-    return jsonify({"ok": True, "draft": final_draft})
+    return jsonify({"ok": True, "results": results})
 
 
 @app.route("/health", methods=["GET"])
