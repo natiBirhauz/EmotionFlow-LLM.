@@ -927,14 +927,43 @@ def index():
             return normalized;
         }
         
-        // Summarize emotions
-        function summarizeEmotions(emotions) {
+        // Summarize emotions in Hebrew or English
+        function summarizeEmotions(emotions, isHebrew = false) {
             const ranked = Object.entries(emotions).sort((a, b) => b[1] - a[1]);
             const dominant = ranked[0][0];
             const strength = Math.round(ranked[0][1] * 100);
             const supporting = ranked.slice(1).filter(([_, val]) => val > 0.08).map(([name, _]) => name).slice(0, 2);
-            const supportText = supporting.length > 0 ? supporting.join(', ') : 'a calm balance';
-            return `The draft leans ${EMOTION_LABELS[dominant]} with ${strength}% intensity. Secondary notes include ${supportText}.`;
+            
+            if (isHebrew) {
+                const hebrewEmotions = {
+                    joy: 'שמח',
+                    sadness: 'עצוב',
+                    anger: 'כועס',
+                    fear: 'מפוחד',
+                    trust: 'אמון',
+                    disgust: 'גועל',
+                    surprise: 'הפתעה',
+                    anticipation: 'ציפייה'
+                };
+                const hebrewLabels = {
+                    joy: 'משמח, מרומם ואופטימי',
+                    sadness: 'מלנכולי, רפלקטיבי ועצוב',
+                    anger: 'אינטנסיבי, כוחני וקונפרונטטיבי',
+                    fear: 'מתוח, חרד ומאיים',
+                    trust: 'מרגיע, יציב ובטוח',
+                    disgust: 'ביקורתי, ספקן וחריף',
+                    surprise: 'בלתי צפוי, מפתיע ודרמטי',
+                    anticipation: 'נלהב, צופה פני עתיד ומרגש'
+                };
+                const dominantHebrew = hebrewEmotions[dominant] || dominant;
+                const supportText = supporting.length > 0 
+                    ? supporting.map(e => hebrewEmotions[e] || e).join(', ')
+                    : 'איזון רגוע';
+                return `הטקסט נוטה להיות ${hebrewLabels[dominant]} בעוצמה של ${strength}%. רגשות משניים כוללים ${supportText}.`;
+            } else {
+                const supportText = supporting.length > 0 ? supporting.join(', ') : 'a calm balance';
+                return `The draft leans ${EMOTION_LABELS[dominant]} with ${strength}% intensity. Secondary notes include ${supportText}.`;
+            }
         }
         
         // Emotion presets
@@ -1131,7 +1160,7 @@ def index():
                 ctx.textBaseline = 'middle';
                 
                 ctx.fillStyle = EMOTION_COLORS[emotion];
-                ctx.font = 'bold 16px sans-serif';  // Larger font
+                ctx.font = 'bold 13px sans-serif';  // Smaller font to fit better
                 ctx.fillText(emotion.charAt(0).toUpperCase() + emotion.slice(1), labelX, labelY);
             });
             
@@ -1187,9 +1216,11 @@ def index():
                 anticipation: '#ec4899'
             };
             
+            // Join with space and preserve line breaks
             return annotations.map(item => {
                 const color = emotionColors[item.emotion] || '#cbd5e1';
-                return '<span style="color: ' + color + '; font-weight: 600;">' + item.text + '</span>';
+                const text = item.text || '';
+                return '<span style="color: ' + color + '; font-weight: 600;">' + text + '</span>';
             }).join(' ');
         }
         
@@ -1406,14 +1437,17 @@ def index():
                 if (data.ok && data.results) {
                     const results = data.results;
                     
+                    console.log('Results received:', results); // Debug log
+                    
                     if (results.length === 1) {
                         // Single result - simple display with emotion highlighting
                         const result = results[0];
                         const coloredText = result.annotations && result.annotations.length > 0 
                             ? applyEmotionColors(result.annotations)
                             : result.draft;
+                        const isHebrew = isHebrewText(result.draft);
                         document.getElementById('outputBox').innerHTML = wrapWithRTLIfNeeded(coloredText, result.draft);
-                        document.getElementById('emotionInsight').textContent = '💡 ' + summarizeEmotions(normalizeEmotions(result.emotions));
+                        document.getElementById('emotionInsight').textContent = '💡 ' + summarizeEmotions(normalizeEmotions(result.emotions), isHebrew);
                         document.getElementById('emotionInsight').style.display = 'block';
                         updateCharts(result.emotions);
                     } else {
@@ -1424,7 +1458,8 @@ def index():
                             const coloredText = result.annotations && result.annotations.length > 0 
                                 ? applyEmotionColors(result.annotations)
                                 : result.draft;
-                            const rtlClass = isHebrewText(result.draft) ? ' class="rtl-text"' : '';
+                            const isHebrew = isHebrewText(result.draft);
+                            const rtlClass = isHebrew ? ' class="rtl-text"' : '';
                             html += `
                                 <div style="margin-bottom: 24px; padding: 16px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; border: 1px solid rgba(167, 139, 250, 0.2);">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -1436,7 +1471,7 @@ def index():
                                     </div>
                                     <div${rtlClass} style="white-space: pre-wrap; line-height: 1.6; font-size: 14px; margin-bottom: 12px;">${coloredText}</div>
                                     <div style="padding: 10px; background: rgba(167, 139, 250, 0.1); border-radius: 6px; font-size: 12px; color: #cbd5e1;">
-                                        💡 ${summarizeEmotions(normalizeEmotions(result.emotions))}
+                                        💡 ${summarizeEmotions(normalizeEmotions(result.emotions), isHebrew)}
                                     </div>
                                 </div>
                             `;
