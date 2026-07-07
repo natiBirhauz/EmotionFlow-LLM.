@@ -42,6 +42,16 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+*.key
+secrets/
+
+# Vercel
+.vercel
+
 # Project specific
 *.png.backup
 readme.txt

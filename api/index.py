@@ -11,9 +11,16 @@ app = Flask(__name__)
 
 
 def get_api_key(user_api_key: str | None) -> str | None:
-    if user_api_key and user_api_key.strip():
+    # If user_api_key is "FREE_USE", use the shared key for authenticated free users
+    if user_api_key == "FREE_USE":
+        shared_key = os.getenv("SHARED_OPENAI_API_KEY", "").strip()
+        if shared_key:
+            return shared_key
+    # If a specific user API key is provided, use it
+    if user_api_key and user_api_key.strip() and user_api_key != "FREE_USE":
         return user_api_key.strip()
-    for env_name in ("OPENAI_API_KEY", "DEFAULT_OPENAI_API_KEY", "FREE_OPENAI_API_KEY"):
+    # Fallback to environment variables
+    for env_name in ("OPENAI_API_KEY", "DEFAULT_OPENAI_API_KEY", "FREE_OPENAI_API_KEY", "SHARED_OPENAI_API_KEY"):
         value = os.getenv(env_name, "").strip()
         if value:
             return value
@@ -66,7 +73,8 @@ def index():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EmotionFlow Studio</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.0.0/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async></script>
     <style>
         * {
             margin: 0;
@@ -371,14 +379,66 @@ def index():
             font-size: 13px;
         }
         
+        .examples {
+            margin-top: 30px;
+        }
+        
+        .examples h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #a78bfa;
+        }
+        
+        .example-btn {
+            display: inline-block;
+            padding: 10px 16px;
+            background: rgba(167, 139, 250, 0.1);
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            border-radius: 6px;
+            color: #cbd5e1;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+            font-size: 13px;
+        }
+        
         .example-btn:hover {
             background: rgba(167, 139, 250, 0.2);
             border-color: rgba(167, 139, 250, 0.5);
+        }
+        
+        .auth-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(167, 139, 250, 0.1);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .user-info {
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+        
+        .free-uses {
+            color: #60a5fa;
+            font-weight: 600;
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="auth-section">
+            <div id="googleSignInButton"></div>
+            <div id="userStatus" style="display: none;">
+                <div class="user-info">Welcome, <span id="userName"></span></div>
+                <div class="free-uses">Free uses remaining: <span id="freeUsesRemaining">1</span></div>
+                <button onclick="handleLogout()" style="padding: 8px 16px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; color: #fca5a5; cursor: pointer; font-size: 12px; margin-top: 5px;">Sign Out</button>
+            </div>
+        </div>
         <div class="header">
             <h1>✨ EmotionFlow Studio</h1>
             <p>Turn a simple prompt into a polished draft with emotional controls</p>
@@ -474,6 +534,86 @@ def index():
     </div>
     
     <script>
+        // Wait for Chart.js to load
+        function ensureChartLoaded(callback) {
+            if (typeof Chart !== 'undefined') {
+                callback();
+            } else {
+                setTimeout(() => ensureChartLoaded(callback), 100);
+            }
+        }
+        
+        // Google Sign-In configuration
+        function initGoogleSignIn() {
+            if (typeof google !== 'undefined' && google.accounts) {
+                const clientId = '""" + os.getenv("GOOGLE_CLIENT_ID", "YOUR_GOOGLE_CLIENT_ID") + """';
+                if (clientId && clientId !== 'YOUR_GOOGLE_CLIENT_ID') {
+                    google.accounts.id.initialize({
+                        client_id: clientId,
+                        callback: handleCredentialResponse
+                    });
+                    
+                    google.accounts.id.renderButton(
+                        document.getElementById('googleSignInButton'),
+                        { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill' }
+                    );
+                } else {
+                    document.getElementById('googleSignInButton').innerHTML = '<p style="color: #fca5a5; font-size: 12px;">Google Sign-In not configured</p>';
+                }
+            } else {
+                setTimeout(initGoogleSignIn, 100);
+            }
+        }
+        
+        window.onload = function() {
+            initGoogleSignIn();
+            
+            // Check if user is already logged in
+            const savedUser = localStorage.getItem('emotionflow_user');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                showUserStatus(user);
+            }
+            
+            // Initialize the app
+            initializeEmotions();
+            updateSliderDisplays();
+        };
+        
+        function handleCredentialResponse(response) {
+            // Decode JWT token to get user info
+            const base64Url = response.credential.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            
+            const user = JSON.parse(jsonPayload);
+            
+            // Save user to localStorage with free uses
+            const userSession = {
+                email: user.email,
+                name: user.name,
+                picture: user.picture,
+                freeUses: 1
+            };
+            localStorage.setItem('emotionflow_user', JSON.stringify(userSession));
+            showUserStatus(userSession);
+        }
+        
+        function showUserStatus(user) {
+            document.getElementById('googleSignInButton').style.display = 'none';
+            document.getElementById('userStatus').style.display = 'block';
+            document.getElementById('userName').textContent = user.name;
+            document.getElementById('freeUsesRemaining').textContent = user.freeUses;
+        }
+        
+        function handleLogout() {
+            localStorage.removeItem('emotionflow_user');
+            document.getElementById('userStatus').style.display = 'none';
+            document.getElementById('googleSignInButton').style.display = 'block';
+        }
+        
         const EMOTIONS = ["joy", "sadness", "anger", "fear", "trust", "disgust", "surprise", "anticipation"];
         const EMOTION_LABELS = {
             "joy": "bright and uplifting",
@@ -487,6 +627,23 @@ def index():
         };
         
         let charts = { bar: null, radar: null };
+        
+        // Update slider displays
+        function updateSliderDisplays() {
+            document.getElementById('lengthValue').textContent = document.getElementById('length').value;
+            document.getElementById('creativityValue').textContent = parseFloat(document.getElementById('creativity').value).toFixed(1);
+            document.getElementById('samplesValue').textContent = document.getElementById('samples').value;
+            
+            document.getElementById('length').addEventListener('input', (e) => {
+                document.getElementById('lengthValue').textContent = e.target.value;
+            });
+            document.getElementById('creativity').addEventListener('input', (e) => {
+                document.getElementById('creativityValue').textContent = parseFloat(e.target.value).toFixed(1);
+            });
+            document.getElementById('samples').addEventListener('input', (e) => {
+                document.getElementById('samplesValue').textContent = e.target.value;
+            });
+        }
         
         // Initialize emotion sliders
         function initializeEmotions() {
@@ -543,53 +700,98 @@ def index():
             return `The draft leans ${EMOTION_LABELS[dominant]} with ${strength}% intensity. Secondary notes include ${supportText}.`;
         }
         
-        // Update charts
+        // Update charts with error handling
         function updateCharts(emotions) {
-            const normalized = normalizeEmotions(emotions);
-            const ordered = Object.entries(normalized).sort((a, b) => b[1] - a[1]);
-            const labels = ordered.map(([name, _]) => name.charAt(0).toUpperCase() + name.slice(1));
-            const values = ordered.map(([_, val]) => val);
-            const colors = ["#7c3aed", "#2563eb", "#f97316", "#dc2626", "#14b8a6", "#84cc16", "#f43f5e", "#eab308"];
-            
-            // Bar chart
-            if (charts.bar) charts.bar.destroy();
-            const barCtx = document.getElementById('barChart').getContext('2d');
-            charts.bar = new Chart(barCtx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Emotion Balance',
-                        data: values,
-                        backgroundColor: colors.slice(0, labels.length),
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    plugins: { legend: { display: false } },
-                    scales: { x: { max: 1 } }
+            ensureChartLoaded(() => {
+                try {
+                    const normalized = normalizeEmotions(emotions);
+                    const ordered = Object.entries(normalized).sort((a, b) => b[1] - a[1]);
+                    const labels = ordered.map(([name, _]) => name.charAt(0).toUpperCase() + name.slice(1));
+                    const values = ordered.map(([_, val]) => val);
+                    const colors = ["#7c3aed", "#2563eb", "#f97316", "#dc2626", "#14b8a6", "#84cc16", "#f43f5e", "#eab308"];
+                    
+                    // Bar chart
+                    if (charts.bar) charts.bar.destroy();
+                    const barCtx = document.getElementById('barChart').getContext('2d');
+                    charts.bar = new Chart(barCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Emotion Balance',
+                                data: values,
+                                backgroundColor: colors.slice(0, labels.length),
+                                borderRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            indexAxis: 'y',
+                            plugins: { 
+                                legend: { display: false },
+                                tooltip: { enabled: true }
+                            },
+                            scales: { 
+                                x: { 
+                                    max: 1,
+                                    ticks: { color: '#cbd5e1' },
+                                    grid: { color: 'rgba(255,255,255,0.1)' }
+                                },
+                                y: {
+                                    ticks: { color: '#cbd5e1' },
+                                    grid: { color: 'rgba(255,255,255,0.1)' }
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Radar chart
+                    if (charts.radar) charts.radar.destroy();
+                    const radarCtx = document.getElementById('radarChart').getContext('2d');
+                    const radarValues = EMOTIONS.map(e => normalized[e] || 0);
+                    charts.radar = new Chart(radarCtx, {
+                        type: 'radar',
+                        data: {
+                            labels: EMOTIONS.map(e => e.charAt(0).toUpperCase() + e.slice(1)),
+                            datasets: [{
+                                label: 'Emotion Radar',
+                                data: radarValues,
+                                borderColor: '#a78bfa',
+                                backgroundColor: 'rgba(167, 139, 250, 0.2)',
+                                borderWidth: 2,
+                                fill: true,
+                                pointBackgroundColor: '#a78bfa',
+                                pointBorderColor: '#fff',
+                                pointHoverBackgroundColor: '#fff',
+                                pointHoverBorderColor: '#a78bfa'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: { 
+                                legend: { display: false },
+                                tooltip: { enabled: true }
+                            },
+                            scales: {
+                                r: {
+                                    beginAtZero: true,
+                                    max: 1,
+                                    ticks: { 
+                                        color: '#cbd5e1',
+                                        backdropColor: 'transparent'
+                                    },
+                                    grid: { color: 'rgba(255,255,255,0.1)' },
+                                    pointLabels: { color: '#cbd5e1' }
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Chart error:', error);
+                    showStatus('Chart rendering error. Please refresh.', 'error');
                 }
-            });
-            
-            // Radar chart
-            if (charts.radar) charts.radar.destroy();
-            const radarCtx = document.getElementById('radarChart').getContext('2d');
-            const radarValues = EMOTIONS.map(e => normalized[e] || 0);
-            charts.radar = new Chart(radarCtx, {
-                type: 'radar',
-                data: {
-                    labels: EMOTIONS.map(e => e.charAt(0).toUpperCase() + e.slice(1)),
-                    datasets: [{
-                        label: 'Emotion Radar',
-                        data: radarValues,
-                        borderColor: '#a78bfa',
-                        backgroundColor: 'rgba(167, 139, 250, 0.2)',
-                        fill: true,
-                        pointBackgroundColor: '#a78bfa'
-                    }]
-                },
-                options: { plugins: { legend: { display: false } } }
             });
         }
         
@@ -601,10 +803,27 @@ def index():
             setTimeout(() => status.classList.remove('show'), 5000);
         }
         
-        // Generate
+        // Load example
+        function loadExample(params) {
+            const [prompt, mode, length, creativity, emotions, samples] = params;
+            document.getElementById('prompt').value = prompt;
+            document.getElementById('mode').value = mode;
+            document.getElementById('length').value = length;
+            document.getElementById('creativity').value = creativity;
+            document.getElementById('samples').value = samples;
+            
+            EMOTIONS.forEach((emotion, idx) => {
+                document.getElementById(emotion).value = emotions[idx];
+                document.getElementById(`${emotion}Value`).textContent = emotions[idx].toFixed(2);
+            });
+            
+            updateSliderDisplays();
+        }
+        
+        // Generate with free use handling
         document.getElementById('generateBtn').addEventListener('click', async () => {
             const prompt = document.getElementById('prompt').value.trim();
-            const apiKey = document.getElementById('apiKey').value.trim();
+            let apiKey = document.getElementById('apiKey').value.trim();
             const mode = document.getElementById('mode').value;
             const creativity = parseFloat(document.getElementById('creativity').value);
             const emotions = getEmotions();
@@ -616,6 +835,25 @@ def index():
             
             if (Object.values(emotions).reduce((a, b) => a + b, 0) === 0) {
                 showStatus('Please move at least one emotion slider', 'error');
+                return;
+            }
+            
+            // Check if user is logged in and has free uses
+            const user = localStorage.getItem('emotionflow_user');
+            if (user && !apiKey) {
+                const userSession = JSON.parse(user);
+                if (userSession.freeUses > 0) {
+                    // Use free generation
+                    apiKey = 'FREE_USE'; // Signal to backend to use shared key
+                    userSession.freeUses--;
+                    localStorage.setItem('emotionflow_user', JSON.stringify(userSession));
+                    document.getElementById('freeUsesRemaining').textContent = userSession.freeUses;
+                } else {
+                    showStatus('Free uses exhausted. Please enter your OpenAI API key.', 'error');
+                    return;
+                }
+            } else if (!apiKey) {
+                showStatus('Please sign in with Google or enter your OpenAI API key', 'error');
                 return;
             }
             
@@ -637,12 +875,12 @@ def index():
                     updateCharts(emotions);
                     showStatus('Generated successfully!', 'success');
                 } else {
-                    showStatus(data.message, 'error');
-                    document.getElementById('outputBox').textContent = '';
+                    showStatus(data.message || 'Generation failed', 'error');
+                    document.getElementById('outputBox').textContent = 'Generation failed. Please try again.';
                 }
             } catch (error) {
                 showStatus(`Error: ${error.message}`, 'error');
-                document.getElementById('outputBox').textContent = '';
+                document.getElementById('outputBox').textContent = 'Network error. Please check your connection.';
             } finally {
                 btn.disabled = false;
             }

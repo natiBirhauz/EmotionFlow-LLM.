@@ -11,5 +11,9 @@
       "src": "/(.*)",
       "dest": "api/index.py"
     }
-  ]
+  ],
+  "env": {
+    "SHARED_OPENAI_API_KEY": "@shared-openai-api-key",
+    "GOOGLE_CLIENT_ID": "@google-client-id"
+  }
 }
