@@ -27,7 +27,7 @@ def get_api_key(user_api_key: str | None) -> str | None:
     return None
 
 
-def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity: float = 0.7, emotions: dict = None) -> str | None:
+def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity: float = 0.7, emotions: dict = None, length: int = 3) -> str | None:
     if not api_key:
         return None
 
@@ -51,20 +51,33 @@ def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity
             emotion_desc = " and ".join([emotion_map.get(e, e) for e in top_emotions])
             emotion_instruction = f" The tone should feel {emotion_desc}."
 
+    # Adjust length instruction
+    length_map = {
+        2: "very brief and concise",
+        3: "moderate length",
+        4: "detailed and thorough",
+        5: "comprehensive and elaborate"
+    }
+    length_instruction = length_map.get(length, "moderate length")
+    
+    # Adjust max_tokens based on length
+    max_tokens_map = {2: 150, 3: 250, 4: 350, 5: 450}
+    max_tokens = max_tokens_map.get(length, 250)
+
     request_data = {
         "model": "gpt-4o-mini",
         "messages": [
             {
                 "role": "system",
-                "content": "You are a creative writing assistant. Write a concise, polished draft matching the requested format and emotional tone.",
+                "content": "You are a creative writing assistant. Write a polished draft matching the requested format, length, and emotional tone.",
             },
             {
                 "role": "user",
-                "content": f"Create a {mode} style draft for this prompt: {prompt}.{emotion_instruction} Keep it vivid, useful, and polished.",
+                "content": f"Create a {length_instruction} {mode} style draft for this prompt: {prompt}.{emotion_instruction} Keep it vivid, useful, and polished.",
             },
         ],
         "temperature": min(1.0, 0.6 + creativity * 0.25),
-        "max_tokens": 350,
+        "max_tokens": max_tokens,
     }
 
     req = urllib.request.Request(
@@ -648,21 +661,28 @@ def index():
         
         let charts = { bar: null, radar: null };
         
-        // Update slider displays
+        // Update slider displays - single event listener setup
         function updateSliderDisplays() {
-            document.getElementById('lengthValue').textContent = document.getElementById('length').value;
-            document.getElementById('creativityValue').textContent = parseFloat(document.getElementById('creativity').value).toFixed(1);
-            document.getElementById('samplesValue').textContent = document.getElementById('samples').value;
+            const updateValue = (id, suffix = '') => {
+                const el = document.getElementById(id);
+                const display = document.getElementById(id + 'Value');
+                if (el && display) {
+                    display.textContent = el.value + suffix;
+                }
+            };
             
-            document.getElementById('length').addEventListener('input', (e) => {
-                document.getElementById('lengthValue').textContent = e.target.value;
+            // Set initial values
+            updateValue('length');
+            updateValue('creativity');
+            updateValue('samples');
+            
+            // Single event listeners (not duplicated)
+            document.getElementById('length').addEventListener('input', () => updateValue('length'));
+            document.getElementById('creativity').addEventListener('input', () => {
+                const val = document.getElementById('creativity').value;
+                document.getElementById('creativityValue').textContent = parseFloat(val).toFixed(1);
             });
-            document.getElementById('creativity').addEventListener('input', (e) => {
-                document.getElementById('creativityValue').textContent = parseFloat(e.target.value).toFixed(1);
-            });
-            document.getElementById('samples').addEventListener('input', (e) => {
-                document.getElementById('samplesValue').textContent = e.target.value;
-            });
+            document.getElementById('samples').addEventListener('input', () => updateValue('samples'));
         }
         
         // Initialize emotion sliders
@@ -875,6 +895,8 @@ def index():
             let apiKey = document.getElementById('apiKey').value.trim();
             const mode = document.getElementById('mode').value;
             const creativity = parseFloat(document.getElementById('creativity').value);
+            const length = parseInt(document.getElementById('length').value);
+            const variations = parseInt(document.getElementById('samples').value);
             const emotions = getEmotions();
             
             if (!prompt) {
@@ -908,13 +930,14 @@ def index():
             
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
-            document.getElementById('outputBox').innerHTML = '<div class="loading"></div><div class="loading"></div><div class="loading"></div> Generating...';
+            const loadingMsg = variations > 1 ? `Generating ${variations} variations...` : 'Generating...';
+            document.getElementById('outputBox').innerHTML = '<div class="loading"></div><div class="loading"></div><div class="loading"></div> ' + loadingMsg;
             
             try {
                 const response = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, api_key: apiKey, mode, creativity, emotions })
+                    body: JSON.stringify({ prompt, api_key: apiKey, mode, creativity, length, variations, emotions })
                 });
                 
                 const data = await response.json();
@@ -933,17 +956,6 @@ def index():
             } finally {
                 btn.disabled = false;
             }
-        });
-        
-        // Update slider displays
-        document.getElementById('length').addEventListener('input', (e) => {
-            document.getElementById('lengthValue').textContent = e.target.value;
-        });
-        document.getElementById('creativity').addEventListener('input', (e) => {
-            document.getElementById('creativityValue').textContent = parseFloat(e.target.value).toFixed(1);
-        });
-        document.getElementById('samples').addEventListener('input', (e) => {
-            document.getElementById('samplesValue').textContent = e.target.value;
         });
         
         // Load example
@@ -979,6 +991,8 @@ def generate_api():
     prompt = payload.get("prompt", "") or "A fresh idea for tomorrow"
     mode = payload.get("mode", "story")
     creativity = float(payload.get("creativity", 0.7) or 0.7)
+    length = int(payload.get("length", 3) or 3)
+    variations = int(payload.get("variations", 1) or 1)
     api_key = get_api_key(payload.get("api_key"))
     
     # Get emotions from payload
@@ -992,14 +1006,32 @@ def generate_api():
             "message": "No API key was provided. Set OPENAI_API_KEY in Vercel or paste a key into the form.",
         }), 400
 
-    draft = generate_with_openai(prompt, mode, api_key, creativity=creativity, emotions=emotions)
-    if not draft:
+    # Generate multiple variations if requested
+    drafts = []
+    for i in range(min(variations, 4)):  # Max 4 variations
+        # Add slight variation to creativity for different results
+        variation_creativity = creativity + (i * 0.05) if i > 0 else creativity
+        variation_creativity = min(1.0, variation_creativity)
+        
+        draft = generate_with_openai(prompt, mode, api_key, creativity=variation_creativity, emotions=emotions, length=length)
+        if draft:
+            drafts.append(draft)
+        else:
+            break  # Stop if generation fails
+    
+    if not drafts:
         return jsonify({
             "ok": False,
             "message": "The key could not be used right now. Please check the key or try again.",
         }), 400
 
-    return jsonify({"ok": True, "draft": draft})
+    # Format multiple drafts
+    if len(drafts) == 1:
+        final_draft = drafts[0]
+    else:
+        final_draft = "\n\n".join([f"**Variation {i+1}:**\n{draft}" for i, draft in enumerate(drafts)])
+
+    return jsonify({"ok": True, "draft": final_draft})
 
 
 @app.route("/health", methods=["GET"])
