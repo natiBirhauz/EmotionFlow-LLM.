@@ -508,15 +508,15 @@ def index():
             font-weight: 600;
         }
         
-        /* Emotion color highlights */
-        .emotion-joy { color: #fbbf24; font-weight: 500; }
-        .emotion-sadness { color: #60a5fa; font-weight: 500; }
-        .emotion-anger { color: #ef4444; font-weight: 500; }
-        .emotion-fear { color: #a78bfa; font-weight: 500; }
-        .emotion-trust { color: #34d399; font-weight: 500; }
-        .emotion-disgust { color: #84cc16; font-weight: 500; }
-        .emotion-surprise { color: #f59e0b; font-weight: 500; }
-        .emotion-anticipation { color: #ec4899; font-weight: 500; }
+        /* Emotion color highlights - bright and visible */
+        .emotion-joy { color: #fbbf24 !important; font-weight: 600 !important; }
+        .emotion-sadness { color: #60a5fa !important; font-weight: 600 !important; }
+        .emotion-anger { color: #ef4444 !important; font-weight: 600 !important; }
+        .emotion-fear { color: #a78bfa !important; font-weight: 600 !important; }
+        .emotion-trust { color: #34d399 !important; font-weight: 600 !important; }
+        .emotion-disgust { color: #84cc16 !important; font-weight: 600 !important; }
+        .emotion-surprise { color: #f59e0b !important; font-weight: 600 !important; }
+        .emotion-anticipation { color: #ec4899 !important; font-weight: 600 !important; }
         
         /* RTL support for Hebrew */
         .rtl-text {
@@ -603,7 +603,7 @@ def index():
                     </div>
                     
                     <div id="wheelContainer" style="display: none; margin-bottom: 16px;">
-                        <canvas id="plutchikWheel" width="400" height="400" style="display: block; margin: 0 auto; cursor: crosshair; border-radius: 50%; background: rgba(0,0,0,0.3);"></canvas>
+                        <canvas id="plutchikWheel" width="500" height="500" style="display: block; margin: 0 auto; cursor: crosshair; border-radius: 50%; background: rgba(0,0,0,0.3);"></canvas>
                         <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 8px;">Click on the wheel to set emotions</p>
                     </div>
                     
@@ -1021,7 +1021,7 @@ def index():
             const ctx = canvas.getContext('2d');
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
-            const radius = 150;  // Increased from 130
+            const radius = 180;  // Increased to 180 for 500x500 canvas
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
@@ -1043,9 +1043,9 @@ def index():
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 
-                // Draw label - positioned further out and with better text alignment
+                // Draw label - positioned with plenty of space
                 const labelAngle = startAngle + angleStep / 2;
-                const labelRadius = radius + 35;  // Increased from 20
+                const labelRadius = radius + 50;  // Increased from 35 to 50
                 const labelX = centerX + Math.cos(labelAngle) * labelRadius;
                 const labelY = centerY + Math.sin(labelAngle) * labelRadius;
                 
@@ -1054,13 +1054,13 @@ def index():
                 ctx.textBaseline = 'middle';
                 
                 ctx.fillStyle = EMOTION_COLORS[emotion];
-                ctx.font = 'bold 13px sans-serif';  // Increased font size and made bold
+                ctx.font = 'bold 14px sans-serif';  // Increased font size
                 ctx.fillText(emotion.charAt(0).toUpperCase() + emotion.slice(1), labelX, labelY);
             });
             
             // Draw center circle
             ctx.beginPath();
-            ctx.arc(centerX, centerY, 10, 0, Math.PI * 2);
+            ctx.arc(centerX, centerY, 12, 0, Math.PI * 2);
             ctx.fillStyle = '#a78bfa';
             ctx.fill();
         }
@@ -1077,7 +1077,7 @@ def index():
                 const angle = Math.atan2(y, x) + Math.PI / 2;
                 const normalizedAngle = (angle + Math.PI * 2) % (Math.PI * 2);
                 const distance = Math.sqrt(x * x + y * y);
-                const maxRadius = 150;  // Updated to match new radius
+                const maxRadius = 180;  // Updated to match new radius
                 
                 // Determine which emotion was clicked
                 const angleStep = (Math.PI * 2) / EMOTIONS.length;
@@ -1095,22 +1095,10 @@ def index():
         
         // Highlight text with emotion colors
         function highlightEmotions(text) {
-            // Escape HTML first to prevent XSS but preserve structure
-            const escapeMap = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;'
-            };
-            
-            // Don't double-escape if already has emotion spans
+            // Don't double-process if already has emotion spans
             if (text.includes('class="emotion-')) {
                 return text;
             }
-            
-            // Escape HTML special chars
-            let safeText = text.replace(/[&<>"']/g, (char) => escapeMap[char] || char);
             
             // Expanded keyword matching for better detection
             const emotionKeywords = {
@@ -1124,15 +1112,18 @@ def index():
                 anticipation: ['anticipate', 'anticipation', 'expect', 'expecting', 'await', 'awaiting', 'hopeful', 'hope', 'eager', 'eagerly', 'excited', 'looking forward', 'soon', 'ready']
             };
             
-            // Apply highlighting with proper HTML
-            let highlightedText = safeText;
+            // Apply highlighting directly without escaping (output is from trusted API)
+            let highlightedText = text;
             Object.entries(emotionKeywords).forEach(([emotion, keywords]) => {
                 keywords.forEach(keyword => {
-                    const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
+                    // Escape special regex characters in keyword
+                    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`\\b(${escapedKeyword})\\b`, 'gi');
                     highlightedText = highlightedText.replace(regex, `<span class="emotion-${emotion}">$1</span>`);
                 });
             });
             
+            console.log('Highlighting applied:', highlightedText.substring(0, 200));  // Debug log
             return highlightedText;
         }
         
