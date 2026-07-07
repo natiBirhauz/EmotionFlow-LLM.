@@ -134,22 +134,29 @@ def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity
     # Build emotion description if provided
     emotion_instruction = ""
     if emotions:
-        # Get top 2 emotions
-        sorted_emotions = sorted(emotions.items(), key=lambda x: x[1], reverse=True)
-        top_emotions = [name for name, val in sorted_emotions[:2] if val > 0.1]
-        if top_emotions:
+        # Get emotions with significant values
+        active_emotions = [(name, val) for name, val in emotions.items() if val > 0.1]
+        active_emotions.sort(key=lambda x: x[1], reverse=True)
+        
+        if active_emotions:
             emotion_map = {
                 "joy": "joyful, uplifting, and optimistic",
                 "sadness": "melancholic, reflective, and somber",
                 "anger": "intense, forceful, and confrontational",
                 "fear": "tense, anxious, and foreboding",
                 "trust": "reassuring, steady, and confident",
-                "disgust": "critical, skeptical, and sharp",
+                "disgust": "critical, repulsive, and disgusted",
                 "surprise": "unexpected, striking, and dramatic",
                 "anticipation": "eager, forward-looking, and exciting"
             }
-            emotion_desc = " and ".join([emotion_map.get(e, e) for e in top_emotions])
-            emotion_instruction = f" The tone should feel {emotion_desc}."
+            
+            # Build detailed emotion instruction
+            primary = active_emotions[0]
+            emotion_instruction = f" IMPORTANT: The writing MUST strongly convey {primary[0]} emotion ({emotion_map[primary[0]]}) at {int(primary[1]*100)}% intensity."
+            
+            if len(active_emotions) > 1:
+                secondary = [f"{name} ({int(val*100)}%)" for name, val in active_emotions[1:3]]
+                emotion_instruction += f" Include subtle undertones of {', '.join(secondary)}."
 
     # Adjust length instruction
     length_map = {
@@ -174,11 +181,11 @@ def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity
         "messages": [
             {
                 "role": "system",
-                "content": f"You are a creative writing assistant. Write a polished draft matching the requested format, length, and emotional tone.{language_instruction}",
+                "content": f"You are a creative writing assistant specialized in emotional storytelling. Write polished drafts that strongly match the requested emotional tone and intensity.{language_instruction}",
             },
             {
                 "role": "user",
-                "content": f"Create a {length_instruction} {mode} style draft for this prompt: {prompt}.{emotion_instruction} Keep it vivid, useful, and polished.{language_instruction}",
+                "content": f"Write a {length_instruction} {mode} about: {prompt}.{emotion_instruction} Make the emotional tone very clear and strong throughout the entire piece.{language_instruction}",
             },
         ],
         "temperature": min(1.0, 0.6 + creativity * 0.25),
@@ -1237,6 +1244,29 @@ def index():
             }).join(' ');
         }
         
+        // Calculate detected emotions from annotations
+        function calculateDetectedEmotions(annotations) {
+            const emotionCounts = {
+                joy: 0, sadness: 0, anger: 0, fear: 0,
+                trust: 0, disgust: 0, surprise: 0, anticipation: 0
+            };
+            
+            annotations.forEach(item => {
+                if (item.emotion && emotionCounts.hasOwnProperty(item.emotion)) {
+                    emotionCounts[item.emotion]++;
+                }
+            });
+            
+            // Convert counts to percentages
+            const total = annotations.length;
+            const emotions = {};
+            Object.keys(emotionCounts).forEach(emotion => {
+                emotions[emotion] = total > 0 ? emotionCounts[emotion] / total : 0;
+            });
+            
+            return emotions;
+        }
+        
         // Detect if text contains Hebrew characters
         function isHebrewText(text) {
             const hebrewRegex = /[\u0590-\u05FF]/;
@@ -1461,9 +1491,17 @@ def index():
                             : result.draft;
                         const isHebrew = isHebrewText(result.draft);
                         document.getElementById('outputBox').innerHTML = wrapWithRTLIfNeeded(coloredText, result.draft);
-                        document.getElementById('emotionInsight').textContent = '💡 ' + summarizeEmotions(normalizeEmotions(result.emotions), isHebrew);
+                        
+                        // Show DETECTED emotions if we have annotations
+                        if (result.annotations && result.annotations.length > 0) {
+                            const detectedEmotions = calculateDetectedEmotions(result.annotations);
+                            document.getElementById('emotionInsight').textContent = '💡 ' + summarizeEmotions(normalizeEmotions(detectedEmotions), isHebrew);
+                            updateCharts(detectedEmotions);
+                        } else {
+                            document.getElementById('emotionInsight').textContent = '💡 ' + summarizeEmotions(normalizeEmotions(result.emotions), isHebrew);
+                            updateCharts(result.emotions);
+                        }
                         document.getElementById('emotionInsight').style.display = 'block';
-                        updateCharts(result.emotions);
                     } else {
                         // Multiple results - create variation cards
                         let html = '';
@@ -1475,6 +1513,16 @@ def index():
                                 : result.draft;
                             const isHebrew = isHebrewText(result.draft);
                             const rtlClass = isHebrew ? ' class="rtl-text"' : '';
+                            
+                            // Calculate detected emotions from annotations
+                            let insightText;
+                            if (result.annotations && result.annotations.length > 0) {
+                                const detectedEmotions = calculateDetectedEmotions(result.annotations);
+                                insightText = summarizeEmotions(normalizeEmotions(detectedEmotions), isHebrew);
+                            } else {
+                                insightText = summarizeEmotions(normalizeEmotions(result.emotions), isHebrew);
+                            }
+                            
                             html += `
                                 <div style="margin-bottom: 24px; padding: 16px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; border: 1px solid rgba(167, 139, 250, 0.2);">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -1486,7 +1534,7 @@ def index():
                                     </div>
                                     <div${rtlClass} style="white-space: pre-wrap; line-height: 1.6; font-size: 14px; margin-bottom: 12px;">${coloredText}</div>
                                     <div style="padding: 10px; background: rgba(167, 139, 250, 0.1); border-radius: 6px; font-size: 12px; color: #cbd5e1;">
-                                        💡 ${summarizeEmotions(normalizeEmotions(result.emotions), isHebrew)}
+                                        💡 ${insightText}
                                     </div>
                                 </div>
                             `;
