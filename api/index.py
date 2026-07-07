@@ -2,10 +2,13 @@ import json
 import os
 import urllib.error
 import urllib.request
+from pathlib import Path
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 
-app = Flask(__name__)
+# Set up the app with static and template folders
+base_dir = Path(__file__).parent.parent
+app = Flask(__name__, static_folder=str(base_dir / "public"), static_url_path="/", template_folder=str(base_dir / "public"))
 
 
 def get_api_key(user_api_key: str | None) -> str | None:
@@ -56,7 +59,41 @@ def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity
         return None
 
 
-@app.route("/", methods=["POST", "GET"])
+@app.route("/", methods=["GET"])
+def index():
+    try:
+        return send_file(str(base_dir / "public" / "index.html"))
+    except Exception:
+        return jsonify({"status": "ok", "message": "EmotionFlow Studio API is running"})
+
+
+@app.route("/api/generate", methods=["POST", "GET"])
+def generate_api():
+    payload = request.get_json(silent=True) or {}
+    if request.method == "GET":
+        payload = request.args.to_dict()
+
+    prompt = payload.get("prompt", "") or "A fresh idea for tomorrow"
+    mode = payload.get("mode", "story")
+    creativity = float(payload.get("creativity", 0.7) or 0.7)
+    api_key = get_api_key(payload.get("api_key"))
+
+    if not api_key:
+        return jsonify({
+            "ok": False,
+            "message": "No API key was provided. Set OPENAI_API_KEY in Vercel or paste a key into the form.",
+        }), 400
+
+    draft = generate_with_openai(prompt, mode, api_key, creativity=creativity)
+    if not draft:
+        return jsonify({
+            "ok": False,
+            "message": "The key could not be used right now. Please check the key or try again.",
+        }), 400
+
+    return jsonify({"ok": True, "draft": draft})
+
+
 @app.route("/generate", methods=["POST", "GET"])
 def generate_route():
     payload = request.get_json(silent=True) or {}
