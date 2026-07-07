@@ -22,10 +22,17 @@ EmotionFlow-LLM is an experimental transformer-style language model that blends 
 
 ### 1) Install dependencies
 
+**For local development with the full UI and model:**
+```bash
+pip install -r requirements-dev.txt
+```
+
+**For Vercel deployment (minimal):**
 ```bash
 pip install -r requirements.txt
-pip install gradio
 ```
+
+The `requirements.txt` includes only Flask and Gradio for the API. The `requirements-dev.txt` adds PyTorch, scikit-learn, and testing tools for local development.
 
 ### 2) Run the local studio
 
