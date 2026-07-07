@@ -603,7 +603,7 @@ def index():
                     </div>
                     
                     <div id="wheelContainer" style="display: none; margin-bottom: 16px;">
-                        <canvas id="plutchikWheel" width="300" height="300" style="display: block; margin: 0 auto; cursor: crosshair; border-radius: 50%; background: rgba(0,0,0,0.3);"></canvas>
+                        <canvas id="plutchikWheel" width="400" height="400" style="display: block; margin: 0 auto; cursor: crosshair; border-radius: 50%; background: rgba(0,0,0,0.3);"></canvas>
                         <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 8px;">Click on the wheel to set emotions</p>
                     </div>
                     
@@ -1021,7 +1021,7 @@ def index():
             const ctx = canvas.getContext('2d');
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
-            const radius = 130;
+            const radius = 150;  // Increased from 130
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
@@ -1043,15 +1043,19 @@ def index():
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 
-                // Draw label
+                // Draw label - positioned further out and with better text alignment
                 const labelAngle = startAngle + angleStep / 2;
-                const labelRadius = radius + 20;
+                const labelRadius = radius + 35;  // Increased from 20
                 const labelX = centerX + Math.cos(labelAngle) * labelRadius;
                 const labelY = centerY + Math.sin(labelAngle) * labelRadius;
-                ctx.fillStyle = '#cbd5e1';
-                ctx.font = '11px sans-serif';
+                
+                // Set text alignment based on position
                 ctx.textAlign = 'center';
-                ctx.fillText(emotion, labelX, labelY);
+                ctx.textBaseline = 'middle';
+                
+                ctx.fillStyle = EMOTION_COLORS[emotion];
+                ctx.font = 'bold 13px sans-serif';  // Increased font size and made bold
+                ctx.fillText(emotion.charAt(0).toUpperCase() + emotion.slice(1), labelX, labelY);
             });
             
             // Draw center circle
@@ -1073,7 +1077,7 @@ def index():
                 const angle = Math.atan2(y, x) + Math.PI / 2;
                 const normalizedAngle = (angle + Math.PI * 2) % (Math.PI * 2);
                 const distance = Math.sqrt(x * x + y * y);
-                const maxRadius = 130;
+                const maxRadius = 150;  // Updated to match new radius
                 
                 // Determine which emotion was clicked
                 const angleStep = (Math.PI * 2) / EMOTIONS.length;
@@ -1091,19 +1095,37 @@ def index():
         
         // Highlight text with emotion colors
         function highlightEmotions(text) {
-            // Simple keyword matching for demonstration
-            const emotionKeywords = {
-                joy: ['happy', 'joyful', 'delighted', 'cheerful', 'bright', 'wonderful', 'glad', 'pleased', 'smile', 'laugh'],
-                sadness: ['sad', 'sorrow', 'melancholy', 'tears', 'grief', 'lonely', 'down', 'blue', 'cry', 'weep'],
-                anger: ['angry', 'furious', 'rage', 'mad', 'irritated', 'annoyed', 'frustrated', 'hate'],
-                fear: ['afraid', 'scared', 'terrified', 'anxious', 'worried', 'nervous', 'frightened', 'panic'],
-                trust: ['trust', 'believe', 'faith', 'confident', 'reliable', 'secure', 'safe', 'depend'],
-                disgust: ['disgusted', 'revolting', 'nasty', 'gross', 'repulsive', 'awful', 'vile'],
-                surprise: ['surprised', 'shocked', 'amazed', 'astonished', 'unexpected', 'sudden', 'startle'],
-                anticipation: ['anticipate', 'expect', 'await', 'hopeful', 'eager', 'excited', 'looking forward', 'soon']
+            // Escape HTML first to prevent XSS but preserve structure
+            const escapeMap = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
             };
             
-            let highlightedText = text;
+            // Don't double-escape if already has emotion spans
+            if (text.includes('class="emotion-')) {
+                return text;
+            }
+            
+            // Escape HTML special chars
+            let safeText = text.replace(/[&<>"']/g, (char) => escapeMap[char] || char);
+            
+            // Expanded keyword matching for better detection
+            const emotionKeywords = {
+                joy: ['happy', 'happiness', 'joyful', 'delighted', 'cheerful', 'bright', 'wonderful', 'glad', 'pleased', 'smile', 'smiling', 'laugh', 'laughing', 'excited', 'excitement', 'love', 'loving'],
+                sadness: ['sad', 'sadness', 'sorrow', 'sorrowful', 'melancholy', 'tears', 'crying', 'grief', 'lonely', 'loneliness', 'down', 'blue', 'cry', 'weep', 'weeping', 'depressed', 'gloomy'],
+                anger: ['angry', 'anger', 'furious', 'fury', 'rage', 'mad', 'irritated', 'annoyed', 'frustrated', 'frustration', 'hate', 'hatred', 'bitter', 'resentful'],
+                fear: ['afraid', 'fear', 'scared', 'terrified', 'terror', 'anxious', 'anxiety', 'worried', 'worry', 'nervous', 'frightened', 'panic', 'panicked', 'dread'],
+                trust: ['trust', 'trusting', 'believe', 'belief', 'faith', 'confident', 'confidence', 'reliable', 'secure', 'security', 'safe', 'safety', 'depend', 'dependable'],
+                disgust: ['disgusted', 'disgust', 'revolting', 'nasty', 'gross', 'repulsive', 'awful', 'vile', 'horrible', 'terrible'],
+                surprise: ['surprised', 'surprise', 'shocked', 'shock', 'amazed', 'amazing', 'astonished', 'unexpected', 'sudden', 'suddenly', 'startle', 'startled', 'wow'],
+                anticipation: ['anticipate', 'anticipation', 'expect', 'expecting', 'await', 'awaiting', 'hopeful', 'hope', 'eager', 'eagerly', 'excited', 'looking forward', 'soon', 'ready']
+            };
+            
+            // Apply highlighting with proper HTML
+            let highlightedText = safeText;
             Object.entries(emotionKeywords).forEach(([emotion, keywords]) => {
                 keywords.forEach(keyword => {
                     const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
