@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -9,205 +10,444 @@ from flask import Flask, jsonify, request
 # Set up the app
 app = Flask(__name__)
 
+PLUTCHIK_EMOTIONS = [
+    "joy",
+    "sadness",
+    "anger",
+    "fear",
+    "trust",
+    "disgust",
+    "surprise",
+    "anticipation",
+]
 
-def analyze_text_emotions(text: str, api_key: str) -> dict:
-    """Analyze text to detect emotional content using GPT."""
-    if not api_key:
+EMOTION_LABELS = {
+    "joy": "joyful, uplifting, and optimistic",
+    "sadness": "melancholic, reflective, and somber",
+    "anger": "intense, forceful, and confrontational",
+    "fear": "tense, anxious, and foreboding",
+    "trust": "reassuring, steady, and confident",
+    "disgust": "critical, repulsive, and disgusted",
+    "surprise": "unexpected, striking, and dramatic",
+    "anticipation": "eager, forward-looking, and exciting",
+}
+
+EMOTION_LABELS_HE = {
+    "joy": "שמחה, אופטימית ומרוממת",
+    "sadness": "עצובה, מלנכולית ומהורהרת",
+    "anger": "זועמת, תקיפה ועוצמתית",
+    "fear": "חרדה, מתוחה ומזהירה",
+    "trust": "בטוחה, אמינה ומרגיעה",
+    "disgust": "ביקורתית, נוקבת ודוחה",
+    "surprise": "מפתיעה, דרמטית ובלתי צפויה",
+    "anticipation": "דרוכה, סקרנית ומלאת ציפייה",
+}
+
+EMOTION_KEYWORDS = {
+    "joy": ["happy", "joy", "delight", "cheerful", "glad", "celebrate", "radiant", "smile", "laugh", "uplift", "positive", "warmth", "שמח", "שמחה", "מאושר", "נהדר", "כיף", "נפלא", "אושר", "חיוך", "שמחתי"],
+    "sadness": ["sad", "sorrow", "grief", "depressed", "heartbroken", "melancholy", "tears", "mourn", "lonely", "weep", "lost", "עצב", "עצוב", "בכי", "דמעות", "כואב", "אבל", "שברון", "בודד"],
+    "anger": ["angry", "rage", "furious", "outraged", "mad", "bitter", "wrath", "hostile", "irritated", "fury", "resent", "כעס", "זעם", "רותח", "עצבני", "מרגיז", "טינה", "קריזה", "זועם"],
+    "fear": ["fear", "afraid", "scared", "scary", "terrified", "panic", "dread", "horror", "anxious", "nervous", "alarm", "פחד", "חרדה", "מבוהל", "אימה", "חושש", "בהלה", "חרד", "מפחיד"],
+    "trust": ["trust", "faith", "reliable", "confident", "loyal", "honest", "secure", "bond", "dependable", "true", "truth", "אמון", "בטוח", "נאמן", "ביטחון", "אמין", "שותפות", "אמונה", "אמיתי"],
+    "disgust": ["disgust", "repulsive", "gross", "revolting", "vile", "sickening", "nasty", "foul", "loathe", "distaste", "גועל", "מגעיל", "דוחה", "מתעב", "מאוס", "סלידה", "בחילה", "מאוסה"],
+    "surprise": ["surprise", "shock", "astonished", "stunned", "unexpected", "amazed", "wonder", "startled", "abrupt", "הפתעה", "נדהם", "בהלם", "בלתי צפוי", "פתאומי", "פליאה", "תדהמה", "מופתע"],
+    "anticipation": ["anticipate", "eager", "expect", "hope", "forward", "await", "curious", "ready", "longing", "yearn", "ציפייה", "תקווה", "מחכה", "מצפה", "להוט", "דריכות", "סקרנות", "מייחל"],
+}
+
+
+def call_gemini(user_prompt: str, system_prompt: str = None, json_mode: bool = False, temperature: float = 0.7, max_tokens: int = 800) -> str | None:
+    """Call Google Gemini Free Tier API."""
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not gemini_key:
         return None
 
-    request_data = {
-        "model": "gpt-4o-mini",
-        "messages": [
-            {
-                "role": "system",
-                "content": "You are an emotion analysis expert. Analyze text and rate the presence of Plutchik's 8 emotions (joy, sadness, anger, fear, trust, disgust, surprise, anticipation) on a scale of 0.0 to 1.0. Return ONLY a JSON object with emotion names as keys and decimal values.",
-            },
-            {
-                "role": "user",
-                "content": f"Analyze the emotional content of this text and return emotion scores:\n\n{text}\n\nReturn format: {{\"joy\": 0.0, \"sadness\": 0.0, \"anger\": 0.0, \"fear\": 0.0, \"trust\": 0.0, \"disgust\": 0.0, \"surprise\": 0.0, \"anticipation\": 0.0}}",
-            },
-        ],
-        "temperature": 0.3,  # Lower temperature for consistent analysis
-        "max_tokens": 150,
-    }
-
-    req = urllib.request.Request(
-        "https://api.openai.com/v1/chat/completions",
-        data=json.dumps(request_data).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-        },
-        method="POST",
-    )
-
-    try:
-        with urllib.request.urlopen(req, timeout=25) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-            content = payload.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-            # Parse JSON response
-            emotions = json.loads(content)
-            return emotions
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
-        return None
-
-
-def annotate_text_with_emotions(text: str, api_key: str, language: str = "english") -> dict:
-    """Annotate text with emotion colors for each sentence/phrase using GPT."""
-    if not api_key:
-        return None
-
-    if language == "hebrew":
-        # Simplified Hebrew instructions
-        system_msg = "You are an emotion expert. Analyze Hebrew text and label each sentence with one emotion: joy, sadness, anger, fear, trust, disgust, surprise, or anticipation. Return ONLY valid JSON array."
-        user_msg = f"Label each sentence in this Hebrew text with its emotion:\n\n{text}\n\nReturn JSON: [{{\"text\": \"המשפט\", \"emotion\": \"joy\"}}, ...]"
-    else:
-        system_msg = "You are an emotion expert. Analyze English text and label each sentence with one emotion: joy, sadness, anger, fear, trust, disgust, surprise, or anticipation. Return ONLY valid JSON array."
-        user_msg = f"Label each sentence with its emotion:\n\n{text}\n\nReturn JSON: [{{\"text\": \"sentence\", \"emotion\": \"joy\"}}, ...]"
-    
-    request_data = {
-        "model": "gpt-4o-mini",
-        "messages": [
-            {
-                "role": "system",
-                "content": system_msg,
-            },
+    body = {
+        "contents": [
             {
                 "role": "user",
-                "content": user_msg,
-            },
+                "parts": [{"text": user_prompt}],
+            }
         ],
-        "temperature": 0.2,
-        "max_tokens": 800,  # Increased from 500
-    }
-
-    req = urllib.request.Request(
-        "https://api.openai.com/v1/chat/completions",
-        data=json.dumps(request_data).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
+        "generationConfig": {
+            "temperature": min(1.0, max(0.0, temperature)),
+            "maxOutputTokens": max_tokens,
         },
-        method="POST",
-    )
+    }
+    if json_mode:
+        body["generationConfig"]["responseMimeType"] = "application/json"
+    if system_prompt:
+        body["systemInstruction"] = {
+            "parts": [{"text": system_prompt}]
+        }
 
-    try:
-        with urllib.request.urlopen(req, timeout=40) as response:  # Increased timeout
-            payload = json.loads(response.read().decode("utf-8"))
-            content = payload.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-            
-            # Try to extract JSON if it's wrapped in markdown code blocks
-            if content.startswith("```"):
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:].strip()
-            
-            # Parse JSON response
-            annotations = json.loads(content)
-            return annotations if isinstance(annotations, list) else None
-    except Exception as e:
-        print(f"Annotation error: {e}")
-        return None
-
-
-def get_api_key(user_api_key: str | None) -> str | None:
-    # If user_api_key is "FREE_USE", use the shared key for authenticated free users
-    if user_api_key == "FREE_USE":
-        shared_key = os.getenv("SHARED_OPENAI_API_KEY", "").strip()
-        if shared_key:
-            return shared_key
-    # If a specific user API key is provided, use it
-    if user_api_key and user_api_key.strip() and user_api_key != "FREE_USE":
-        return user_api_key.strip()
-    # Fallback to environment variables
-    for env_name in ("OPENAI_API_KEY", "DEFAULT_OPENAI_API_KEY", "FREE_OPENAI_API_KEY", "SHARED_OPENAI_API_KEY"):
-        value = os.getenv(env_name, "").strip()
-        if value:
-            return value
+    for model in ("gemini-2.0-flash", "gemini-1.5-flash"):
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+                candidates = payload.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts:
+                        text = parts[0].get("text", "").strip()
+                        if text:
+                            return text
+        except Exception as e:
+            print(f"Gemini ({model}) API error: {e}")
+            continue
     return None
 
 
-def generate_with_openai(prompt: str, mode: str, api_key: str | None, creativity: float = 0.7, emotions: dict = None, length: int = 3, language: str = "english") -> str | None:
+def call_groq(user_prompt: str, system_prompt: str = None, json_mode: bool = False, temperature: float = 0.7, max_tokens: int = 800) -> str | None:
+    """Call Groq Free Tier API."""
+    groq_key = os.getenv("GROQ_API_KEY")
+    if not groq_key:
+        return None
+
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": user_prompt})
+
+    for model in ("llama-3.3-70b-versatile", "llama-3.1-8b-instant"):
+        body = {
+            "model": model,
+            "messages": messages,
+            "temperature": min(1.0, max(0.0, temperature)),
+            "max_tokens": max_tokens,
+        }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+
+        req = urllib.request.Request(
+            "https://api.groq.com/openai/v1/chat/completions",
+            data=json.dumps(body).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {groq_key}",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=25) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+                msg = payload.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                if msg:
+                    return msg
+        except Exception as e:
+            print(f"Groq ({model}) API error: {e}")
+            continue
+    return None
+
+
+def call_openai(user_prompt: str, system_prompt: str = None, json_mode: bool = False, temperature: float = 0.7, max_tokens: int = 800) -> str | None:
+    """Call OpenAI API if configured in server environment."""
+    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("DEFAULT_OPENAI_API_KEY")
     if not api_key:
         return None
 
-    # Build emotion description if provided
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": user_prompt})
+
+    body = {
+        "model": "gpt-4o-mini",
+        "messages": messages,
+        "temperature": min(1.0, max(0.0, temperature)),
+        "max_tokens": max_tokens,
+    }
+    if json_mode:
+        body["response_format"] = {"type": "json_object"}
+
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/chat/completions",
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=25) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            msg = payload.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            if msg:
+                return msg
+    except Exception as e:
+        print(f"OpenAI API error: {e}")
+        return None
+
+
+def call_free_llm(user_prompt: str, system_prompt: str = None, json_mode: bool = False, temperature: float = 0.7, max_tokens: int = 800) -> str | None:
+    """Dispatcher: Tries Google Gemini free tier, then Groq free tier, then OpenAI."""
+    # 1. Gemini (Free Tier)
+    res = call_gemini(user_prompt, system_prompt, json_mode, temperature, max_tokens)
+    if res:
+        return res
+    # 2. Groq (Free Tier)
+    res = call_groq(user_prompt, system_prompt, json_mode, temperature, max_tokens)
+    if res:
+        return res
+    # 3. OpenAI (Fallback)
+    res = call_openai(user_prompt, system_prompt, json_mode, temperature, max_tokens)
+    if res:
+        return res
+    return None
+
+
+def generate_draft_local(prompt: str, mode: str, emotions: dict = None, length: int = 3, language: str = "english") -> str:
+    """Built-in local emotion generator that requires zero external APIs."""
+    emotions = emotions or {e: 0.125 for e in PLUTCHIK_EMOTIONS}
+    active = sorted(emotions.items(), key=lambda x: x[1], reverse=True)
+    dominant = active[0][0] if active else "joy"
+    secondary = [name for name, val in active[1:3] if val > 0.08] or ["clarity"]
+    topic = (prompt or "a fresh idea").strip()
+    is_hebrew = language == "hebrew" or bool(re.search(r"[\u0590-\u05FF]", topic))
+
+    if is_hebrew:
+        tone_he = EMOTION_LABELS_HE.get(dominant, "מרגשת")
+        sec_he = ", ".join([EMOTION_LABELS_HE.get(s, s) for s in secondary])
+        if mode == "story":
+            sentences = [
+                f"סביב {topic}, אנרגיה {tone_he} החלה לפעום ולמלא את החלל בעוצמה ייחודית.",
+                f"כל פרט ברגע נראה כאילו נע מתוך כוונה פנימית, והפך את החוויה לבלתי נשכחת.",
+                f"ככל שהזמן חלף, האווירה השאירה תחושה עמוקה של {sec_he} שהדהדה לאורך זמן.",
+            ]
+            if length > 3:
+                sentences.append("זה היה רגע שנחרט בזיכרון בבהירות שקטה ומשמעותית.")
+            return " ".join(sentences[: max(2, length)])
+        elif mode == "email":
+            subject = f"נושא: עדכון מעורר השראה לגבי {topic}"
+            body = [
+                f"שלום רב,\n\nרציתי לשתף עדכון קצר וממוקד בנוגע ל-{topic}, שכן התחושה המובילה כרגע היא {tone_he} וחשוב לרתום אותה.",
+                f"הרעיון המרכזי הוא לשמור על בהירות, ביטחון וקשר ישיר, תוך הדגשת תחושת ה-{sec_he} שנוצרה.",
+                f"נשמח לקבל את המשוב שלך ולבחון יחד את הצעדים הבאים לקידום הפרויקט.",
+            ]
+            return f"{subject}\n\n" + "\n\n".join(body[: max(2, length)])
+        elif mode == "pitch":
+            bullets = [
+                f"• {topic} מציג גישה חדשנית המשלבת נוכחות {tone_he} עם פתרון מעשי מוכח.",
+                f"• המסר מעוצב כך שיבלוט בייחודיותו ויעביר אמינות גבוהה ומיקוד סביב {sec_he}.",
+                f"• המיזם מוכן ליישום מיידי ומייצר מעורבות רגשית עמוקה בקרב קהל היעד.",
+            ]
+            if length > 3:
+                bullets.append("• זהו בדיוק התזמון הנכון להפוך את החזון להצלחה ממשית.")
+            return "\n".join(bullets[: max(2, length)])
+        else:  # social
+            post = [
+                f"{topic} מתפתח בכיוון שמרגיש מלא אנרגיה {tone_he} וחיבור אנושי אמיתי.",
+                f"המיקוד מדויק, ומביא לידי ביטוי תחושה בלתי מתפשרת של {sec_he}.",
+                "צעד קדימה, והדברים מתחילים להתחבר בצורה מדויקת ומעוררת השראה.",
+            ]
+            if length > 3:
+                post.append("#חדשנות #רגש #יצירתיות")
+            return "\n\n".join(post[: max(2, length)])
+    else:
+        tone_en = EMOTION_LABELS.get(dominant, "vivid")
+        sec_en = ", ".join(secondary)
+        if mode == "story":
+            sentences = [
+                f"In the atmosphere surrounding {topic}, {tone_en} energy took root and gave the scene a distinctive pulse.",
+                f"Every detail seemed composed with intention, turning the moment into something indelible and sharply felt.",
+                f"By the conclusion, a lingering current of {sec_en} remained in the air, quiet yet unmistakable.",
+            ]
+            if length > 3:
+                sentences.append("It settled into memory with the quiet authority of something truly felt.")
+            return " ".join(sentences[: max(2, length)])
+        elif mode == "email":
+            subject = f"Subject: Thoughtful update on {topic}"
+            body = [
+                f"Hi there,\n\nI wanted to share a quick perspective on {topic}. The direction feels distinctly {tone_en} and presents an ideal moment to move forward.",
+                f"Our core aim is to keep the communication grounded, impactful, and clearly guided by {sec_en}.",
+                f"Looking forward to hearing your thoughts as we shape the next iteration.",
+            ]
+            return f"{subject}\n\n" + "\n\n".join(body[: max(2, length)])
+        elif mode == "pitch":
+            bullets = [
+                f"• {topic.capitalize()} presents a compelling direction marked by a {tone_en} presence.",
+                f"• The concept cuts through conventional noise, pairing clear utility with undertones of {sec_en}.",
+                f"• Designed for immediate traction, turning emotional resonance into tangible advantage.",
+            ]
+            if length > 3:
+                bullets.append("• This is the ideal moment to capture attention and build momentum.")
+            return "\n".join(bullets[: max(2, length)])
+        else:  # social
+            post = [
+                f"{topic.capitalize()} is developing with an energy that feels authentically {tone_en}.",
+                f"Focused, clear, and designed to connect with anyone seeking genuine {sec_en}.",
+                "A thoughtful shift in perspective makes all the difference.",
+            ]
+            if length > 3:
+                post.append("#Creative #Storytelling #Innovation")
+            return "\n\n".join(post[: max(2, length)])
+
+
+def analyze_emotions_local(text: str) -> dict:
+    """Built-in text emotion analyzer based on Plutchik's lexicon."""
+    if not text:
+        return {e: 0.125 for e in PLUTCHIK_EMOTIONS}
+    text_lower = text.lower()
+    scores = {e: 0.05 for e in PLUTCHIK_EMOTIONS}
+    total = 0.0
+    for emotion, keywords in EMOTION_KEYWORDS.items():
+        count = sum(1 for kw in keywords if kw in text_lower)
+        scores[emotion] += count * 0.35
+        total += scores[emotion]
+    if total > 0:
+        return {e: round(scores[e] / total, 2) for e in PLUTCHIK_EMOTIONS}
+    return {e: 0.125 for e in PLUTCHIK_EMOTIONS}
+
+
+def annotate_text_local(text: str, language: str = "english") -> list:
+    """Built-in sentence annotator."""
+    if not text:
+        return []
+    parts = re.split(r'([.!?;\n]+)', text)
+    sentences = []
+    for i in range(0, len(parts), 2):
+        s = parts[i].strip()
+        punct = parts[i+1] if i + 1 < len(parts) else ""
+        full_s = f"{s}{punct}".strip()
+        if full_s:
+            sentences.append(full_s)
+    if not sentences:
+        sentences = [text]
+
+    annotations = []
+    for s in sentences:
+        emo_scores = analyze_emotions_local(s)
+        best_emotion = max(emo_scores.items(), key=lambda x: x[1])[0]
+        annotations.append({"text": s, "emotion": best_emotion})
+    return annotations
+
+
+def generate_draft(prompt: str, mode: str, creativity: float = 0.7, emotions: dict = None, length: int = 3, language: str = "english") -> str:
+    """Generate draft using free LLM with local fallback."""
     emotion_instruction = ""
     if emotions:
-        # Get emotions with significant values
         active_emotions = [(name, val) for name, val in emotions.items() if val > 0.1]
         active_emotions.sort(key=lambda x: x[1], reverse=True)
-        
         if active_emotions:
-            emotion_map = {
-                "joy": "joyful, uplifting, and optimistic",
-                "sadness": "melancholic, reflective, and somber",
-                "anger": "intense, forceful, and confrontational",
-                "fear": "tense, anxious, and foreboding",
-                "trust": "reassuring, steady, and confident",
-                "disgust": "critical, repulsive, and disgusted",
-                "surprise": "unexpected, striking, and dramatic",
-                "anticipation": "eager, forward-looking, and exciting"
-            }
-            
-            # Build detailed emotion instruction
             primary = active_emotions[0]
-            emotion_instruction = f" IMPORTANT: The writing MUST strongly convey {primary[0]} emotion ({emotion_map[primary[0]]}) at {int(primary[1]*100)}% intensity."
-            
+            desc = EMOTION_LABELS.get(primary[0], "vivid")
+            emotion_instruction = f" IMPORTANT: The writing MUST strongly convey {primary[0]} emotion ({desc}) at {int(primary[1]*100)}% intensity."
             if len(active_emotions) > 1:
                 secondary = [f"{name} ({int(val*100)}%)" for name, val in active_emotions[1:3]]
                 emotion_instruction += f" Include subtle undertones of {', '.join(secondary)}."
 
-    # Adjust length instruction
     length_map = {
-        2: "very brief and concise",
-        3: "moderate length",
-        4: "detailed and thorough",
-        5: "comprehensive and elaborate"
+        2: "very brief and concise (1-2 short paragraphs)",
+        3: "moderate length (2-3 paragraphs)",
+        4: "detailed and thorough (3-4 paragraphs)",
+        5: "comprehensive and elaborate (4-5 paragraphs)",
     }
-    length_instruction = length_map.get(length, "moderate length")
-    
-    # Adjust max_tokens based on length - reduced to prevent cutoff
-    max_tokens_map = {2: 150, 3: 250, 4: 350, 5: 500}
-    max_tokens = max_tokens_map.get(length, 250)
-    
-    # Language instruction
+    length_instruction = length_map.get(length, "moderate length (2-3 paragraphs)")
+    max_tokens_map = {2: 250, 3: 450, 4: 650, 5: 900}
+    max_tokens = max_tokens_map.get(length, 450)
+
     language_instruction = ""
     if language == "hebrew":
-        language_instruction = " Write the entire response in Hebrew (עברית). Use proper Hebrew grammar and natural Hebrew expressions."
+        language_instruction = " Write the entire response in Hebrew (עברית). Use proper Hebrew grammar, natural phrasing, and rich vocabulary."
 
-    request_data = {
-        "model": "gpt-4o-mini",
-        "messages": [
-            {
-                "role": "system",
-                "content": f"You are a creative writing assistant specialized in emotional storytelling. Write polished drafts that strongly match the requested emotional tone and intensity.{language_instruction}",
-            },
-            {
-                "role": "user",
-                "content": f"Write a {length_instruction} {mode} about: {prompt}.{emotion_instruction} Make the emotional tone very clear and strong throughout the entire piece.{language_instruction}",
-            },
-        ],
-        "temperature": min(1.0, 0.6 + creativity * 0.25),
-        "max_tokens": max_tokens,
-    }
-
-    req = urllib.request.Request(
-        "https://api.openai.com/v1/chat/completions",
-        data=json.dumps(request_data).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-        },
-        method="POST",
+    system_prompt = (
+        "You are a creative writing assistant specialized in emotional storytelling. "
+        f"Write polished drafts that strongly match the requested emotional tone and intensity.{language_instruction}"
+    )
+    user_prompt = (
+        f"Write a {length_instruction} {mode} about: {prompt}.{emotion_instruction} "
+        f"Make the emotional tone very clear, evocative, and consistent throughout the entire piece.{language_instruction}"
     )
 
-    try:
-        with urllib.request.urlopen(req, timeout=25) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-            return payload.get("choices", [{}])[0].get("message", {}).get("content", "").strip() or None
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError):
-        return None
+    llm_result = call_free_llm(
+        user_prompt,
+        system_prompt=system_prompt,
+        json_mode=False,
+        temperature=min(1.0, 0.6 + creativity * 0.25),
+        max_tokens=max_tokens,
+    )
+    if llm_result:
+        return llm_result
+
+    # Fallback to local emotion engine
+    return generate_draft_local(prompt, mode, emotions=emotions, length=length, language=language)
+
+
+def analyze_text_emotions(text: str) -> dict:
+    """Analyze text for Plutchik's 8 emotions using free LLM with local fallback."""
+    system_prompt = (
+        "You are an emotion analysis expert. Analyze text and rate the presence of Plutchik's 8 emotions "
+        "(joy, sadness, anger, fear, trust, disgust, surprise, anticipation) on a scale of 0.0 to 1.0. "
+        "Return ONLY a valid JSON object with emotion names as keys and decimal values between 0.0 and 1.0."
+    )
+    user_prompt = (
+        f"Analyze the emotional content of this text and return emotion scores:\n\n{text}\n\n"
+        'Return format: {"joy": 0.0, "sadness": 0.0, "anger": 0.0, "fear": 0.0, "trust": 0.0, "disgust": 0.0, "surprise": 0.0, "anticipation": 0.0}'
+    )
+
+    raw = call_free_llm(user_prompt, system_prompt=system_prompt, json_mode=True, temperature=0.2, max_tokens=250)
+    if raw:
+        try:
+            cleaned = raw.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("```")[1]
+                if cleaned.startswith("json"):
+                    cleaned = cleaned[4:].strip()
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, dict):
+                return {e: round(float(parsed.get(e, 0.0)), 2) for e in PLUTCHIK_EMOTIONS}
+        except Exception as e:
+            print(f"Emotion JSON parse error: {e}")
+
+    return analyze_emotions_local(text)
+
+
+def annotate_text_with_emotions(text: str, language: str = "english") -> list:
+    """Annotate text with emotions using free LLM with local fallback."""
+    if language == "hebrew":
+        system_prompt = (
+            "You are an emotion expert. Analyze Hebrew text and label each sentence with one emotion: "
+            "joy, sadness, anger, fear, trust, disgust, surprise, or anticipation. Return ONLY a valid JSON array."
+        )
+        user_prompt = f'Label each sentence in this Hebrew text with its emotion:\n\n{text}\n\nReturn JSON: [{{"text": "משפט", "emotion": "joy"}}, ...]'
+    else:
+        system_prompt = (
+            "You are an emotion expert. Analyze English text and label each sentence with one emotion: "
+            "joy, sadness, anger, fear, trust, disgust, surprise, or anticipation. Return ONLY a valid JSON array."
+        )
+        user_prompt = f'Label each sentence with its emotion:\n\n{text}\n\nReturn JSON: [{{"text": "sentence", "emotion": "joy"}}, ...]'
+
+    raw = call_free_llm(user_prompt, system_prompt=system_prompt, json_mode=True, temperature=0.2, max_tokens=1000)
+    if raw:
+        try:
+            cleaned = raw.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("```")[1]
+                if cleaned.startswith("json"):
+                    cleaned = cleaned[4:].strip()
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, list) and len(parsed) > 0:
+                valid_annotations = []
+                for item in parsed:
+                    if isinstance(item, dict) and "text" in item and "emotion" in item:
+                        emo = item["emotion"].lower()
+                        if emo not in PLUTCHIK_EMOTIONS:
+                            emo = "joy"
+                        valid_annotations.append({"text": item["text"], "emotion": emo})
+                if valid_annotations:
+                    return valid_annotations
+        except Exception as e:
+            print(f"Annotation JSON parse error: {e}")
+
+    return annotate_text_local(text, language=language)
+
 
 
 @app.route("/", methods=["GET"])
@@ -219,7 +459,6 @@ def index():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EmotionFlow Studio</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async></script>
     <style>
         * {
             margin: 0;
@@ -553,25 +792,7 @@ def index():
             border-color: rgba(167, 139, 250, 0.5);
         }
         
-        .auth-section {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 15px;
-            background: rgba(167, 139, 250, 0.1);
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        
-        .user-info {
-            color: #cbd5e1;
-            font-size: 14px;
-        }
-        
-        .free-uses {
-            color: #60a5fa;
-            font-weight: 600;
-        }
+
         
         /* Emotion color highlights - bright and visible */
         .emotion-joy { color: #fbbf24 !important; font-weight: 600 !important; }
@@ -592,14 +813,7 @@ def index():
 </head>
 <body>
     <div class="container">
-        <div class="auth-section">
-            <div id="googleSignInButton"></div>
-            <div id="userStatus" style="display: none;">
-                <div class="user-info">Welcome, <span id="userName"></span></div>
-                <div class="free-uses">Free uses remaining: <span id="freeUsesRemaining">1</span></div>
-                <button id="logoutBtn" style="padding: 8px 16px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; color: #fca5a5; cursor: pointer; font-size: 12px; margin-top: 5px;">Sign Out</button>
-            </div>
-        </div>
+
         <div class="header">
             <h1>✨ EmotionFlow Studio</h1>
             <p>Turn a simple prompt into a polished draft with emotional controls</p>
@@ -698,10 +912,7 @@ def index():
                     <div class="emotion-grid" id="emotionSliders"></div>
                 </div>
                 
-                <div class="form-group" style="margin-top: 20px;">
-                    <label>OpenAI API Key (optional)</label>
-                    <input type="password" id="apiKey" placeholder="sk-... (leave blank for local generation)">
-                </div>
+
                 
                 <div style="margin-top: 16px;">
                     <label style="margin-bottom: 8px; display: block;">Quick Emotion Presets</label>
@@ -764,76 +975,11 @@ def index():
             }
         }
         
-        // Google Sign-In configuration
-        function initGoogleSignIn() {
-            if (typeof google !== 'undefined' && google.accounts) {
-                const clientId = '""" + os.getenv("GOOGLE_CLIENT_ID", "YOUR_GOOGLE_CLIENT_ID") + """';
-                if (clientId && clientId !== 'YOUR_GOOGLE_CLIENT_ID') {
-                    google.accounts.id.initialize({
-                        client_id: clientId,
-                        callback: handleCredentialResponse
-                    });
-                    
-                    google.accounts.id.renderButton(
-                        document.getElementById('googleSignInButton'),
-                        { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill' }
-                    );
-                } else {
-                    document.getElementById('googleSignInButton').innerHTML = '<p style="color: #fca5a5; font-size: 12px;">Google Sign-In not configured</p>';
-                }
-            } else {
-                setTimeout(initGoogleSignIn, 100);
-            }
-        }
-        
         window.onload = function() {
-            initGoogleSignIn();
-            
-            // Check if user is already logged in
-            const savedUser = localStorage.getItem('emotionflow_user');
-            if (savedUser) {
-                const user = JSON.parse(savedUser);
-                showUserStatus(user);
-            }
-            
             // Initialize the app
             initializeEmotions();
             updateSliderDisplays();
         };
-        
-        function handleCredentialResponse(response) {
-            // Decode JWT token to get user info
-            const base64Url = response.credential.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            
-            const user = JSON.parse(jsonPayload);
-            
-            // Save user to localStorage with free uses
-            const userSession = {
-                email: user.email,
-                name: user.name,
-                picture: user.picture,
-                freeUses: 1
-            };
-            localStorage.setItem('emotionflow_user', JSON.stringify(userSession));
-            showUserStatus(userSession);
-        }
-        
-        function showUserStatus(user) {
-            document.getElementById('googleSignInButton').style.display = 'none';
-            document.getElementById('userStatus').style.display = 'block';
-            document.getElementById('userName').textContent = user.name;
-            document.getElementById('freeUsesRemaining').textContent = user.freeUses;
-        }
-        
-        function handleLogout() {
-            localStorage.removeItem('emotionflow_user');
-            document.getElementById('userStatus').style.display = 'none';
-            document.getElementById('googleSignInButton').style.display = 'block';
-        }
         
         const EMOTIONS = ["joy", "sadness", "anger", "fear", "trust", "disgust", "surprise", "anticipation"];
         const EMOTION_LABELS = {
@@ -1000,7 +1146,7 @@ def index():
         
         // Count words
         function countWords(text) {
-            return text.trim().split(/\s+/).length;
+            return text.trim().split(/\\s+/).length;
         }
         
         // Copy to clipboard
@@ -1023,25 +1169,9 @@ def index():
         async function analyzeText() {
             const text = document.getElementById('analyzeText').value.trim();
             const language = document.getElementById('language').value;
-            let apiKey = document.getElementById('apiKey').value.trim();
             
             if (!text) {
                 showStatus('Please enter text to analyze', 'error');
-                return;
-            }
-            
-            // Check for API key
-            const user = localStorage.getItem('emotionflow_user');
-            if (user && !apiKey) {
-                const userSession = JSON.parse(user);
-                if (userSession.freeUses > 0) {
-                    apiKey = 'FREE_USE';
-                } else {
-                    showStatus('Please enter your OpenAI API key to analyze', 'error');
-                    return;
-                }
-            } else if (!apiKey) {
-                showStatus('Please sign in or enter your API key to analyze', 'error');
                 return;
             }
             
@@ -1053,7 +1183,7 @@ def index():
                 const response = await fetch('/api/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text, api_key: apiKey, language })
+                    body: JSON.stringify({ text, language })
                 });
                 
                 const data = await response.json();
@@ -1422,10 +1552,9 @@ def index():
             updateSliderDisplays();
         }
         
-        // Generate with free use handling
+        // Generate draft
         document.getElementById('generateBtn').addEventListener('click', async () => {
             const prompt = document.getElementById('prompt').value.trim();
-            let apiKey = document.getElementById('apiKey').value.trim();
             const mode = document.getElementById('mode').value;
             const creativity = parseFloat(document.getElementById('creativity').value);
             const length = parseInt(document.getElementById('length').value);
@@ -1443,25 +1572,6 @@ def index():
                 return;
             }
             
-            // Check if user is logged in and has free uses
-            const user = localStorage.getItem('emotionflow_user');
-            if (user && !apiKey) {
-                const userSession = JSON.parse(user);
-                if (userSession.freeUses > 0) {
-                    // Use free generation
-                    apiKey = 'FREE_USE'; // Signal to backend to use shared key
-                    userSession.freeUses--;
-                    localStorage.setItem('emotionflow_user', JSON.stringify(userSession));
-                    document.getElementById('freeUsesRemaining').textContent = userSession.freeUses;
-                } else {
-                    showStatus('Free uses exhausted. Please enter your OpenAI API key.', 'error');
-                    return;
-                }
-            } else if (!apiKey) {
-                showStatus('Please sign in with Google or enter your OpenAI API key', 'error');
-                return;
-            }
-            
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
             const loadingMsg = variations > 1 ? `Generating ${variations} variations...` : 'Generating...';
@@ -1471,7 +1581,7 @@ def index():
                 const response = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, api_key: apiKey, mode, creativity, length, variations, emotions, language })
+                    body: JSON.stringify({ prompt, mode, creativity, length, variations, emotions, language })
                 });
                 
                 const data = await response.json();
@@ -1596,7 +1706,6 @@ def index():
         document.getElementById('example4').addEventListener('click', () => loadExample(['City at night', 'social', 3, 0.5, [0.1, 0.2, 0, 0.2, 0.1, 0, 0.3, 0.1], 3]));
         
         // Wire up other buttons
-        document.getElementById('logoutBtn').addEventListener('click', handleLogout);
         document.getElementById('toggleWheelBtn').addEventListener('click', toggleWheel);
         document.getElementById('presetHappy').addEventListener('click', () => setEmotionPreset('happy'));
         document.getElementById('presetSad').addEventListener('click', () => setEmotionPreset('sad'));
@@ -1622,40 +1731,32 @@ def generate_api():
     length = int(payload.get("length", 3) or 3)
     variations = int(payload.get("variations", 1) or 1)
     language = payload.get("language", "english")
-    api_key = get_api_key(payload.get("api_key"))
     
     # Get emotions from payload
     emotions = payload.get("emotions", {})
     if isinstance(emotions, str):
-        emotions = json.loads(emotions)
-
-    if not api_key:
-        return jsonify({
-            "ok": False,
-            "message": "No API key was provided. Set OPENAI_API_KEY in Vercel or paste a key into the form.",
-        }), 400
+        try:
+            emotions = json.loads(emotions)
+        except Exception:
+            emotions = {}
 
     # Generate multiple variations if requested
     results = []
     for i in range(min(variations, 4)):  # Max 4 variations
-        # Add slight variation to emotions for different results
         if i > 0:
             varied_emotions = {}
             for emotion, value in emotions.items():
-                # Add ±5% random variation to each emotion
-                variation = (hash(f"{prompt}{i}") % 11 - 5) / 100  # Deterministic but varied
+                variation = (hash(f"{prompt}{i}") % 11 - 5) / 100
                 varied_emotions[emotion] = max(0.0, min(1.0, value + variation))
         else:
             varied_emotions = emotions
             
-        # Add slight variation to creativity
         variation_creativity = creativity + (i * 0.05) if i > 0 else creativity
         variation_creativity = min(1.0, variation_creativity)
         
-        draft = generate_with_openai(prompt, mode, api_key, creativity=variation_creativity, emotions=varied_emotions, length=length, language=language)
+        draft = generate_draft(prompt, mode, creativity=variation_creativity, emotions=varied_emotions, length=length, language=language)
         if draft:
-            # Annotate the draft with emotion colors
-            annotations = annotate_text_with_emotions(draft, api_key, language)
+            annotations = annotate_text_with_emotions(draft, language=language)
             print(f"Generation {i} - Language: {language}, Draft length: {len(draft)}, Annotations: {annotations is not None}")
             
             results.append({
@@ -1665,13 +1766,13 @@ def generate_api():
                 "annotations": annotations if annotations else []
             })
         else:
-            break  # Stop if generation fails
+            break
     
     if not results:
         return jsonify({
             "ok": False,
-            "message": "The key could not be used right now. Please check the key or try again.",
-        }), 400
+            "message": "Generation failed. Please try again.",
+        }), 500
 
     return jsonify({"ok": True, "results": results})
 
@@ -1682,7 +1783,6 @@ def analyze_api():
     payload = request.get_json(silent=True) or {}
     
     text = payload.get("text", "").strip()
-    api_key = get_api_key(payload.get("api_key"))
     language = payload.get("language", "english")
     
     if not text:
@@ -1691,22 +1791,10 @@ def analyze_api():
             "message": "Please provide text to analyze.",
         }), 400
     
-    if not api_key:
-        return jsonify({
-            "ok": False,
-            "message": "No API key available for analysis.",
-        }), 400
-    
-    emotions = analyze_text_emotions(text, api_key)
-    annotations = annotate_text_with_emotions(text, api_key, language)
+    emotions = analyze_text_emotions(text)
+    annotations = annotate_text_with_emotions(text, language=language)
     
     print(f"Analyze API - Language: {language}, Annotations: {annotations is not None}")
-    
-    if not emotions:
-        return jsonify({
-            "ok": False,
-            "message": "Failed to analyze text. Please try again.",
-        }), 400
     
     return jsonify({
         "ok": True,

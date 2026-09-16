@@ -296,10 +296,7 @@
                     <textarea id="prompt" placeholder="Enter your prompt here...">A hidden garden at dawn</textarea>
                 </div>
                 
-                <div class="form-group">
-                    <label for="apiKey">OpenAI API Key</label>
-                    <input type="password" id="apiKey" placeholder="sk-...">
-                </div>
+
                 
                 <div class="form-group">
                     <label for="mode">Mode</label>
@@ -336,7 +333,6 @@
     
     <script>
         const promptInput = document.getElementById('prompt');
-        const apiKeyInput = document.getElementById('apiKey');
         const modeSelect = document.getElementById('mode');
         const creativitySlider = document.getElementById('creativity');
         const creativityValue = document.getElementById('creativityValue');
@@ -362,17 +358,11 @@
         // Generate text
         generateBtn.addEventListener('click', async () => {
             const prompt = promptInput.value.trim();
-            const apiKey = apiKeyInput.value.trim();
             const mode = modeSelect.value;
             const creativity = parseFloat(creativitySlider.value);
             
             if (!prompt) {
                 showStatus('Please enter a prompt', 'error');
-                return;
-            }
-            
-            if (!apiKey) {
-                showStatus('Please enter your OpenAI API key', 'error');
                 return;
             }
             
@@ -388,7 +378,6 @@
                     },
                     body: JSON.stringify({
                         prompt,
-                        api_key: apiKey,
                         mode,
                         creativity,
                     }),

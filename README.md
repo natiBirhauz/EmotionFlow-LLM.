@@ -16,7 +16,7 @@ Control the emotional tone of AI-generated text using Plutchik's 8 core emotions
 - 🎯 Quick presets: Happy, Sad, Dramatic, Calm, Intense
 
 **Smart Generation**
-- 🤖 GPT-4o-mini powered
+- 🤖 Powered by Google Gemini Free Tier (2.0 Flash / 1.5 Flash)
 - 🌍 English & Hebrew support
 - 📊 Real-time emotion detection with color-coded text
 - 📝 Multiple formats: Story, Email, Pitch, Social Media
@@ -27,7 +27,7 @@ Control the emotional tone of AI-generated text using Plutchik's 8 core emotions
 - 🎨 Sentence-by-sentence emotion coloring
 
 **User Experience**
-- 🔐 Google OAuth for free usage
+- ⚡ 100% Free to Use — No login, registration, or API key needed
 - 📋 One-click copy to clipboard
 - 📊 Word count tracking
 - 🎲 Generate 1-4 variations with emotion diversity
@@ -50,10 +50,10 @@ The AI:
 
 ## 🛠️ Tech Stack
 
-- **AI**: OpenAI GPT-4o-mini
+- **AI**: Google Gemini Free Tier (2.0 Flash / 1.5 Flash) + Local Emotion Engine fallback
 - **Backend**: Python + Flask
 - **Frontend**: Vanilla JavaScript + Chart.js
-- **Auth**: Google OAuth 2.0
+- **Access**: Free public web app (Zero sign-in required)
 - **Hosting**: Vercel
 - **Languages**: English & Hebrew (עברית)
 
