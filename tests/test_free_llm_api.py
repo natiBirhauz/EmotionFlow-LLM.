@@ -1,12 +1,6 @@
-import json
 import pytest
-from api.index import (
-    app,
-    analyze_text_emotions,
-    annotate_text_with_emotions,
-    generate_draft,
-    PLUTCHIK_EMOTIONS,
-)
+from api.index import app
+from emotionflow_studio.emotions import PLUTCHIK_EMOTIONS
 
 
 @pytest.fixture

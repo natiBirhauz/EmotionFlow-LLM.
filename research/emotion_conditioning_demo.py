@@ -5,6 +5,13 @@ Examples showing how to use the emotion conditioning API
 to control the emotional tone of generated text.
 """
 
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+OUTPUT_DIR = REPO_ROOT / "docs" / "images"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 import torch
 from emotionflow_llm.emotion_flow_llm import EmotionFlowLLM
 from emotionflow_llm.conditioning import (
