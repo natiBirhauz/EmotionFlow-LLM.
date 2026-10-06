@@ -5,9 +5,16 @@ Visualize how individual neurons in hidden layers carry emotional information.
 Each neuron is colored by its dominant emotion.
 
 Run:
-    python neuron_emotion_viz.py
+    python research/neuron_emotion_viz.py
 """
 
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+OUTPUT_DIR = REPO_ROOT / "docs" / "images"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -89,7 +96,7 @@ def extract_neuron_emotions(model, tokens):
     }
 
 
-def visualize_neuron_emotions_network(neuron_emotions, output_path="neuron_network.png"):
+def visualize_neuron_emotions_network(neuron_emotions, output_path=OUTPUT_DIR / "neuron_network.png"):
     """
     Visualize neurons as a network where each neuron is colored by dominant emotion.
     Shows all layers side by side.
@@ -162,7 +169,7 @@ def visualize_neuron_emotions_network(neuron_emotions, output_path="neuron_netwo
     print(f"Saved {output_path}")
 
 
-def visualize_neuron_emotion_heatmap(neuron_emotions, output_path="neuron_heatmap.png"):
+def visualize_neuron_emotion_heatmap(neuron_emotions, output_path=OUTPUT_DIR / "neuron_heatmap.png"):
     """
     Heatmap showing emotion correlation for each neuron across all layers.
     """
@@ -201,7 +208,7 @@ def visualize_neuron_emotion_heatmap(neuron_emotions, output_path="neuron_heatma
     print(f"Saved {output_path}")
 
 
-def visualize_emotion_flow_sankey(neuron_emotions, output_path="emotion_flow.png"):
+def visualize_emotion_flow_sankey(neuron_emotions, output_path=OUTPUT_DIR / "emotion_flow.png"):
     """
     Show how dominant emotions change from layer to layer.
     """
@@ -254,7 +261,7 @@ def visualize_emotion_flow_sankey(neuron_emotions, output_path="emotion_flow.png
     print(f"Saved {output_path}")
 
 
-def visualize_neuron_connectivity(neuron_emotions, output_path="neuron_connectivity.png"):
+def visualize_neuron_connectivity(neuron_emotions, output_path=OUTPUT_DIR / "neuron_connectivity.png"):
     """
     Show top neurons for each emotion and their connections across layers.
     """

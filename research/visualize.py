@@ -4,9 +4,16 @@ EmotionFlow-LLM Visualization
 Shows how the network works and how emotions influence it.
 
 Run:
-    python visualize.py
+    python research/visualize.py
 """
 
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+OUTPUT_DIR = REPO_ROOT / "docs" / "images"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 import math
 import torch
 import numpy as np
@@ -360,7 +367,7 @@ def main():
     plot_architecture(ax_arch)
     plot_emotion_radar(ax_radar, emotion_vec, title="Mean Emotion Profile\n(across sequence)")
 
-    fig1.savefig("viz_architecture.png", dpi=150, bbox_inches="tight")
+    fig1.savefig(OUTPUT_DIR / "viz_architecture.png", dpi=150, bbox_inches="tight")
     print("  Saved viz_architecture.png")
 
     # ── Page 2: Emotion heatmap + dominant emotion per token ──────────────────
@@ -371,7 +378,7 @@ def main():
     plot_dominant_emotion_per_token(axes2[1], data["emotion_emb"], max_tokens=SEQ)
 
     fig2.tight_layout(rect=[0, 0, 1, 0.95])
-    fig2.savefig("viz_emotion_encoding.png", dpi=150, bbox_inches="tight")
+    fig2.savefig(OUTPUT_DIR / "viz_emotion_encoding.png", dpi=150, bbox_inches="tight")
     print("  Saved viz_emotion_encoding.png")
 
     # ── Page 3: Attention weights per layer ───────────────────────────────────
@@ -382,7 +389,7 @@ def main():
     plot_attention_weights(axes3, data["attn_weights"], seq_len=min(SEQ, 12))
 
     fig3.tight_layout(rect=[0, 0, 1, 0.93])
-    fig3.savefig("viz_attention.png", dpi=150, bbox_inches="tight")
+    fig3.savefig(OUTPUT_DIR / "viz_attention.png", dpi=150, bbox_inches="tight")
     print("  Saved viz_attention.png")
 
     # ── Page 4: Emotion influence on the network ──────────────────────────────
@@ -414,7 +421,7 @@ def main():
     ax_dist.grid(axis="y", alpha=0.3)
 
     fig4.tight_layout(rect=[0, 0, 1, 0.95])
-    fig4.savefig("viz_emotion_influence.png", dpi=150, bbox_inches="tight")
+    fig4.savefig(OUTPUT_DIR / "viz_emotion_influence.png", dpi=150, bbox_inches="tight")
     print("  Saved viz_emotion_influence.png")
 
     print("\nDone. Four PNG files saved:")
